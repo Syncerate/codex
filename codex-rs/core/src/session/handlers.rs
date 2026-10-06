@@ -531,6 +531,10 @@ pub(super) async fn submission_loop(
                     let _ = reply.send(result);
                     false
                 }
+                Op::SetDynamicTools { tools, reply } => {
+                    let _ = reply.send(sess.set_dynamic_tools_if_idle(tools).await);
+                    false
+                }
                 Op::RecoverTurn {
                     thread_settings,
                     start_options,

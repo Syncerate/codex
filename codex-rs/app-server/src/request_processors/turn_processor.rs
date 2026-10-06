@@ -209,6 +209,34 @@ impl TurnRequestProcessor {
             .map(|response| Some(response.into()))
     }
 
+    pub(crate) async fn thread_dynamic_tools_set(
+        &self,
+        request_id: &ConnectionRequestId,
+        params: ThreadDynamicToolsSetParams,
+    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
+        super::thread_processor::validate_dynamic_tools(&params.dynamic_tools)
+            .map_err(invalid_request)?;
+        let (_, thread) = self.load_thread(&params.thread_id).await?;
+        self.ensure_direct_input_allowed(request_id, thread.as_ref())
+            .await?;
+        let (reply, outcome) = oneshot::channel();
+        self.submit_core_op(
+            request_id,
+            &thread,
+            Op::SetDynamicTools {
+                tools: params.dynamic_tools,
+                reply,
+            },
+        )
+        .await
+        .map_err(|err| internal_error(format!("failed to submit dynamic tools: {err}")))?;
+        outcome
+            .await
+            .map_err(|_| internal_error("dynamic tool operation ended before replying"))?
+            .map_err(|err| invalid_request(err.to_string()))?;
+        Ok(Some(ThreadDynamicToolsSetResponse {}.into()))
+    }
+
     pub(crate) async fn turn_settings_update(
         &self,
         request_id: &ConnectionRequestId,

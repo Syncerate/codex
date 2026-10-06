@@ -700,6 +700,12 @@ client_request_definitions! {
         serialization: thread_id(params.thread_id),
         response: v2::ThreadSettingsUpdateResponse,
     },
+    #[experimental("thread/dynamicTools/set")]
+    ThreadDynamicToolsSet => "thread/dynamicTools/set" {
+        params: v2::ThreadDynamicToolsSetParams,
+        serialization: thread_id(params.thread_id),
+        response: v2::ThreadDynamicToolsSetResponse,
+    },
     #[experimental("thread/memoryMode/set")]
     ThreadMemoryModeSet => "thread/memoryMode/set" {
         params: v2::ThreadMemoryModeSetParams,
@@ -4367,6 +4373,30 @@ mod tests {
             serde_json::to_value(&notification)?,
         );
         Ok(())
+    }
+
+    #[test]
+    fn runtime_dynamic_tools_are_experimental_and_require_an_explicit_list() {
+        let request: ClientRequest = serde_json::from_value(json!({
+            "id": 1, "method": "thread/dynamicTools/set",
+            "params": {"threadId": "thread", "dynamicTools": []}
+        }))
+        .expect("valid replacement");
+        assert_eq!(
+            crate::experimental_api::ExperimentalApi::experimental_reason(&request),
+            Some("thread/dynamicTools/set")
+        );
+        for params in [
+            json!({"threadId": "thread"}),
+            json!({"threadId": "thread", "dynamicTools": null}),
+        ] {
+            assert!(
+                serde_json::from_value::<ClientRequest>(json!({
+                    "id": 1, "method": "thread/dynamicTools/set", "params": params
+                }))
+                .is_err()
+            );
+        }
     }
 
     #[test]
