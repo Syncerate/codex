@@ -22,7 +22,12 @@ claimed by this method. A live connection may update or clear its own tools;
 another live owner's name, even with that owner's capability. A reconnecting
 connection must provide the correct capability for each disconnected name it
 requests. Unexpected token keys, wrong tokens and retired tokens are rejected.
-Capabilities cannot promote legacy tools or resurrect cleared registrations.
+Capabilities cannot promote legacy tools or resurrect registrations cleared in
+the current server process. An unknown token supplied for a name absent from
+both ownership and the legacy catalog is accepted as a fresh-addition hint:
+the caller gets a newly minted capability, never authority derived from the hint.
+This allows a durable harness journal to survive server process restart without
+retrying arbitrary token errors or dropping its saved state.
 The response returns the capabilities for the resulting requested set, allowing
 a trusted harness to persist them privately before using its tools.
 
@@ -37,11 +42,15 @@ broker authority. Retain recovery state if either transaction fails. Tokenless
 reservation; its empty response is not proof of global removal.
 
 Every new registration receives a random per-name capability. Tokens are kept
-only in server ownership state and the sensitive RPC params/response, with
+only in active server ownership state and the sensitive RPC params/response, with
 redacted Debug formatting; analytics does not capture this RPC. Tokens never
 enter core tool specs, thread items, conversation history or rollouts. Do not log
 raw RPC frames or place capabilities in tool schemas, arguments or user-facing
 messages. A host must protect its saved capabilities as credentials.
+Process-local hashes of every issued or consumed capability remain after clear;
+both the replacement token and an accepted old-process hint are rejected for
+absent names until process exit. These hashes commit only after the idle catalog
+mutation succeeds, so failed or busy mutations cannot poison recovery retries.
 
 ## Routing, disconnect and lifecycle
 
@@ -70,8 +79,13 @@ must explicitly reclaim its reserved runtime tools with capabilities. Resume of
 an already loaded thread preserves its catalog/ownership. Fork creates a new
 thread and does not inherit runtime ownership or capabilities. A server process
 restart discards this runtime-only registry, so recovery across server restart
-requires fresh explicit addition to the newly loaded catalog. Tokens from the
-old process cannot reclaim a newly registered name.
+requires fresh explicit addition to the newly loaded catalog. A saved old-process
+token may accompany that addition only when the name is absent; the response
+replaces it with a new capability. Unknown hints cannot claim legacy names,
+live registrations or disconnected reservations, and do not authenticate a
+restart or prove previous ownership. Existing registrations still require their
+current exact capability for reconnect. Current-process issued capabilities
+cannot be moved to a new name or fork.
 
 The legacy `thread/dynamicTools/set` rejects a catalog containing owned or
 reserved names, rather than overwriting/clearing them. Other ownership setters

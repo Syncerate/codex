@@ -4,6 +4,8 @@ use std::collections::HashSet;
 
 use codex_app_server_protocol::DynamicToolSpec;
 use codex_protocol::ThreadId;
+use sha2::Digest;
+use sha2::Sha256;
 use uuid::Uuid;
 
 use crate::outgoing_message::ConnectionId;
@@ -24,6 +26,9 @@ struct ThreadOwnership {
 pub(crate) struct DynamicToolOwnership {
     threads: HashMap<ThreadId, ThreadOwnership>,
     closed: HashSet<ConnectionId>,
+    // Process-local tombstones include issued and consumed capabilities. Only
+    // hashes survive retirement; a server restart deliberately resets these.
+    seen_capabilities: HashSet<[u8; 32]>,
 }
 
 pub(crate) enum ToolRoute {
@@ -35,6 +40,11 @@ pub(crate) struct OwnershipUpdate {
     pub(crate) tools: Vec<DynamicToolSpec>,
     pub(crate) tokens: HashMap<String, String>,
     next: ThreadOwnership,
+    capability_hashes: HashSet<[u8; 32]>,
+}
+
+fn capability_hash(token: &str) -> [u8; 32] {
+    Sha256::digest(token.as_bytes()).into()
 }
 
 pub(crate) fn tool_name(tool: &DynamicToolSpec) -> &str {
@@ -98,8 +108,11 @@ impl DynamicToolOwnership {
                 None if current_names.contains(name.as_str()) => {
                     return Err("legacy dynamic tool cannot acquire ownership".into());
                 }
-                None if reconnect.contains_key(name) => {
-                    return Err("retired or unknown dynamic tool reconnect capability".into());
+                None if reconnect.get(name).is_some_and(|token| {
+                    self.seen_capabilities.contains(&capability_hash(token))
+                }) =>
+                {
+                    return Err("retired or misplaced dynamic tool reconnect capability".into());
                 }
                 None => {}
             }
@@ -118,7 +131,14 @@ impl DynamicToolOwnership {
             .cloned()
             .collect();
         let mut tokens = HashMap::new();
+        let mut capability_hashes = HashSet::new();
         for name in &names {
+            // An unknown hint on an absent name is a fresh addition, not proof
+            // of previous ownership. Remember the consumed hint so clearing
+            // the replacement cannot permit the old hint to resurrect it.
+            if let Some(token) = reconnect.get(name) {
+                capability_hashes.insert(capability_hash(token));
+            }
             let registration =
                 next.registrations
                     .entry(name.clone())
@@ -128,6 +148,7 @@ impl DynamicToolOwnership {
                         token: format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple()),
                     });
             registration.owner = Some(connection);
+            capability_hashes.insert(capability_hash(&registration.token));
             tokens.insert(name.clone(), registration.token.clone());
         }
         next.registrations
@@ -137,10 +158,12 @@ impl DynamicToolOwnership {
             tools,
             tokens,
             next,
+            capability_hashes,
         })
     }
 
     pub(crate) fn commit(&mut self, thread_id: ThreadId, update: OwnershipUpdate) {
+        self.seen_capabilities.extend(update.capability_hashes);
         if update.next.registrations.is_empty() {
             self.threads.remove(&thread_id);
         } else {
@@ -226,6 +249,149 @@ mod tests {
         let capabilities = update.tokens.clone();
         state.commit(thread, update);
         (catalog, capabilities)
+    }
+
+    #[test]
+    fn restart_hint_mints_new_capability_and_both_capabilities_retire_on_clear() {
+        let thread = ThreadId::new();
+        let mut old_process = DynamicToolOwnership::default();
+        let (_, previous) = set(
+            &mut old_process,
+            thread,
+            ConnectionId(1),
+            &[],
+            vec![tool("owned")],
+            HashMap::new(),
+        );
+        let mut state = DynamicToolOwnership::default();
+        let (catalog, replacement) = set(
+            &mut state,
+            thread,
+            ConnectionId(2),
+            &[],
+            vec![tool("owned")],
+            previous.clone(),
+        );
+        assert_ne!(replacement, previous);
+        assert!(
+            state
+                .plan(
+                    thread,
+                    ConnectionId(2),
+                    &catalog,
+                    vec![tool("owned")],
+                    previous.clone()
+                )
+                .is_err()
+        );
+        state.disconnect(ConnectionId(2));
+        let (catalog, recovered) = set(
+            &mut state,
+            thread,
+            ConnectionId(3),
+            &catalog,
+            vec![tool("owned")],
+            replacement.clone(),
+        );
+        assert_eq!(replacement, recovered);
+        let (cleared, _) = set(
+            &mut state,
+            thread,
+            ConnectionId(3),
+            &catalog,
+            vec![],
+            HashMap::new(),
+        );
+        for tokens in [previous, replacement] {
+            assert!(
+                state
+                    .plan(
+                        thread,
+                        ConnectionId(4),
+                        &cleared,
+                        vec![tool("owned")],
+                        tokens.clone()
+                    )
+                    .is_err()
+            );
+            // Process-global tombstones also reject moving the capability to a fork.
+            assert!(
+                state
+                    .plan(
+                        ThreadId::new(),
+                        ConnectionId(4),
+                        &[],
+                        vec![tool("owned")],
+                        tokens
+                    )
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn uncommitted_restart_hint_does_not_poison_retry_or_claim_existing_names() {
+        let mut state = DynamicToolOwnership::default();
+        let thread = ThreadId::new();
+        let hint = HashMap::from([("owned".into(), "previous-process-capability".into())]);
+        // A rejected core catalog mutation drops its plan without committing.
+        drop(
+            state
+                .plan(
+                    thread,
+                    ConnectionId(1),
+                    &[],
+                    vec![tool("owned")],
+                    hint.clone(),
+                )
+                .unwrap(),
+        );
+        assert!(
+            state
+                .plan(
+                    thread,
+                    ConnectionId(1),
+                    &[tool("owned")],
+                    vec![tool("owned")],
+                    hint.clone()
+                )
+                .is_err()
+        );
+        let (catalog, fresh) = set(
+            &mut state,
+            thread,
+            ConnectionId(1),
+            &[],
+            vec![tool("owned")],
+            hint.clone(),
+        );
+        assert_ne!(fresh, hint);
+        assert!(
+            state
+                .plan(
+                    thread,
+                    ConnectionId(2),
+                    &catalog,
+                    vec![tool("owned")],
+                    hint.clone()
+                )
+                .is_err()
+        );
+        state.unload(thread);
+        assert!(
+            state
+                .plan(thread, ConnectionId(2), &[], vec![tool("owned")], hint)
+                .is_err()
+        );
+        let (_, reclaimed) = set(
+            &mut state,
+            thread,
+            ConnectionId(2),
+            &[],
+            vec![tool("owned")],
+            fresh.clone(),
+        );
+        assert_eq!(reclaimed, fresh);
     }
 
     #[test]
