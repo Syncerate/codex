@@ -1005,6 +1005,11 @@ impl ThreadRequestProcessor {
     }
 
     async fn finalize_thread_teardown(&self, thread_id: ThreadId) {
+        self.outgoing
+            .dynamic_tool_ownership
+            .lock()
+            .await
+            .unload(thread_id);
         self.pending_thread_unloads.lock().await.remove(&thread_id);
         self.outgoing
             .cancel_requests_for_thread(thread_id, /*error*/ None)
@@ -1062,6 +1067,9 @@ impl ThreadRequestProcessor {
             .remove_thread_for_client(&thread_id)
             .await
             .map_err(|err| core_thread_write_error(operation, err))?;
+        // Fence late dispatch and answers as soon as removal succeeds, before
+        // waiting for shutdown. Other callbacks retain their teardown timing.
+        self.outgoing.unload_dynamic_tool_thread(thread_id).await;
         if let Some(conversation) = removed_conversation {
             info!("thread {thread_id} was active; shutting down");
             match wait_for_thread_shutdown(&conversation).await {

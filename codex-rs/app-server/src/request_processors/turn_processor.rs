@@ -216,7 +216,17 @@ impl TurnRequestProcessor {
     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
         super::thread_processor::validate_dynamic_tools(&params.dynamic_tools)
             .map_err(invalid_request)?;
-        let (_, thread) = self.load_thread(&params.thread_id).await?;
+        let (thread_id, thread) = self.load_thread(&params.thread_id).await?;
+        // Serialize catalog updates with automatic unload admission as well as
+        // the protocol's per-thread RPC queue. Keep this fence through commit.
+        let pending_unloads = self.pending_thread_unloads.lock().await;
+        if pending_unloads.contains(&thread_id) {
+            return Err(invalid_request("thread is unloading"));
+        }
+        let ownership = self.outgoing.dynamic_tool_ownership.lock().await;
+        ownership
+            .ensure_legacy_set_allowed(thread_id)
+            .map_err(invalid_request)?;
         self.ensure_direct_input_allowed(request_id, thread.as_ref())
             .await?;
         let (reply, outcome) = oneshot::channel();
@@ -235,6 +245,56 @@ impl TurnRequestProcessor {
             .map_err(|_| internal_error("dynamic tool operation ended before replying"))?
             .map_err(|err| invalid_request(err.to_string()))?;
         Ok(Some(ThreadDynamicToolsSetResponse {}.into()))
+    }
+
+    pub(crate) async fn thread_dynamic_tools_owned_set(
+        &self,
+        request_id: &ConnectionRequestId,
+        params: ThreadDynamicToolsOwnedSetParams,
+    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
+        super::thread_processor::validate_dynamic_tools(&params.dynamic_tools)
+            .map_err(invalid_request)?;
+        let (thread_id, thread) = self.load_thread(&params.thread_id).await?;
+        // Serialize catalog updates with automatic unload admission as well as
+        // the protocol's per-thread RPC queue. Keep this fence through commit.
+        let pending_unloads = self.pending_thread_unloads.lock().await;
+        if pending_unloads.contains(&thread_id) {
+            return Err(invalid_request("thread is unloading"));
+        }
+        self.ensure_direct_input_allowed(request_id, thread.as_ref())
+            .await?;
+        let mut ownership = self.outgoing.dynamic_tool_ownership.lock().await;
+        let current = thread.dynamic_tools().await;
+        let update = ownership
+            .plan(
+                thread_id,
+                request_id.connection_id,
+                &current,
+                params.dynamic_tools,
+                params.reconnect_tokens.unwrap_or_default(),
+            )
+            .map_err(invalid_request)?;
+        super::thread_processor::validate_dynamic_tools(&update.tools).map_err(invalid_request)?;
+        let (reply, outcome) = oneshot::channel();
+        self.submit_core_op(
+            request_id,
+            &thread,
+            Op::SetDynamicTools {
+                tools: update.tools.clone(),
+                reply,
+            },
+        )
+        .await
+        .map_err(|err| internal_error(format!("failed to submit dynamic tools: {err}")))?;
+        outcome
+            .await
+            .map_err(|_| internal_error("dynamic tool operation ended before replying"))?
+            .map_err(|err| invalid_request(err.to_string()))?;
+        let reconnect_tokens = update.tokens.clone();
+        ownership.commit(thread_id, update);
+        Ok(Some(
+            ThreadDynamicToolsOwnedSetResponse { reconnect_tokens }.into(),
+        ))
     }
 
     pub(crate) async fn turn_settings_update(

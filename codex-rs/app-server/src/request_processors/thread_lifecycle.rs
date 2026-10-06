@@ -435,6 +435,13 @@ pub(super) async fn unload_thread_without_subscribers(
 ) {
     info!("thread {thread_id} has no subscribers and is idle; shutting down");
 
+    // Retain reservations, but disconnect owners before catalog teardown so late
+    // requests cannot be broadcast as if they were legacy registrations.
+    outgoing
+        .dynamic_tool_ownership
+        .lock()
+        .await
+        .unload(thread_id);
     // Any pending app-server -> client requests for this thread can no longer be
     // answered; cancel their callbacks before shutdown/unload.
     outgoing

@@ -111,8 +111,15 @@ const CONNECTION_RPC_DRAIN_TIMEOUT: Duration = Duration::from_secs(/*secs*/ 30);
 fn deserialize_client_request(request: JSONRPCRequest) -> Result<ClientRequest, JSONRPCErrorError> {
     reject_obsolete_request_fields(&request)?;
 
-    ClientRequest::try_from(request)
-        .map_err(|err| invalid_request(format!("Invalid request: {err}")))
+    let sensitive_owned_set = request.method == "thread/dynamicTools/owned/set";
+    ClientRequest::try_from(request).map_err(|err| {
+        if sensitive_owned_set {
+            // Serde type errors can echo invalid string values containing a token.
+            invalid_request("Invalid owned dynamic tool request")
+        } else {
+            invalid_request(format!("Invalid request: {err}"))
+        }
+    })
 }
 
 fn reject_obsolete_request_fields(request: &JSONRPCRequest) -> Result<(), JSONRPCErrorError> {
@@ -742,7 +749,11 @@ impl MessageProcessor {
     pub(crate) async fn process_notification(&self, notification: JSONRPCNotification) {
         // Currently, we do not expect to receive any notifications from the
         // client, so we just log them.
-        tracing::info!("<- notification: {:?}", notification);
+        if notification.method == "thread/dynamicTools/owned/set" {
+            tracing::info!("<- notification: thread/dynamicTools/owned/set (params redacted)");
+        } else {
+            tracing::info!("<- notification: {:?}", notification);
+        }
     }
 
     /// Handles typed notifications from in-process clients.
@@ -871,6 +882,9 @@ impl MessageProcessor {
         session_state: &ConnectionSessionState,
     ) {
         session_state.rpc_gate.close().await;
+        self.outgoing
+            .disconnect_connection_owned_requests(connection_id)
+            .await;
         self.account_processor
             .gateway_connection_closed(connection_id);
         self.request_serialization_queues.discard_closed().await;
@@ -1436,8 +1450,10 @@ impl MessageProcessor {
                     .thread_settings_update(&request_id, params)
                     .await
             }
-            ClientRequest::ThreadDynamicToolsOwnedSet { .. } => {
-                Err(invalid_request("owned dynamic tool routing is not available yet"))
+            ClientRequest::ThreadDynamicToolsOwnedSet { params, .. } => {
+                self.turn_processor
+                    .thread_dynamic_tools_owned_set(&request_id, params)
+                    .await
             }
             ClientRequest::ThreadDynamicToolsSet { params, .. } => {
                 self.turn_processor
@@ -1923,3 +1939,19 @@ mod gateway_oauth_tests;
 #[cfg(test)]
 #[path = "message_processor_thread_lifecycle_tests.rs"]
 mod thread_lifecycle_tests;
+
+#[cfg(test)]
+mod owned_dynamic_tool_secrecy_tests {
+    use super::*;
+
+    #[test]
+    fn malformed_owned_dynamic_tool_requests_do_not_echo_capabilities() {
+        let request: JSONRPCRequest = serde_json::from_value(serde_json::json!({
+            "id": 1, "method": "thread/dynamicTools/owned/set",
+            "params": {"threadId": "thread", "dynamicTools": [], "reconnectTokens": "sensitive-capability"}
+        })).unwrap();
+        let error = deserialize_client_request(request).unwrap_err();
+        assert_eq!(error.message, "Invalid owned dynamic tool request");
+        assert!(!format!("{error:?}").contains("sensitive-capability"));
+    }
+}
