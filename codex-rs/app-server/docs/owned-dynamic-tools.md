@@ -26,6 +26,16 @@ Capabilities cannot promote legacy tools or resurrect cleared registrations.
 The response returns the capabilities for the resulting requested set, allowing
 a trusted harness to persist them privately before using its tools.
 
+An empty set with tokens for disconnected names is rejected: token keys must
+identify requested specs, not deletion targets. To remove a disconnected
+reservation after a client restart, resume the persisted thread, reclaim the
+spec with its exact saved token, then send an empty set without tokens. These
+are two idle catalog transactions. Keep a broker binding revoked and callback
+readiness disabled throughout; transport ownership recovery must not activate
+broker authority. Retain recovery state if either transaction fails. Tokenless
+`[]` before reclaim clears only the new caller's live set and preserves the
+reservation; its empty response is not proof of global removal.
+
 Every new registration receives a random per-name capability. Tokens are kept
 only in server ownership state and the sensitive RPC params/response, with
 redacted Debug formatting; analytics does not capture this RPC. Tokens never
@@ -116,9 +126,11 @@ Do not abort that transaction between core acceptance and ownership commit.
 
 ## Build and evidence
 
-Tested Rust source: `4bf1db184c24617d7ccd40a469f0093a38d654da`, based on
-`59976f8baf9b3984bb52456c4c59d088ae248ff5`. The following documentation commit
-does not change Rust sources. The native `codex-app-server` executable built by
+Initial full-suite Rust source: `4bf1db184c24617d7ccd40a469f0093a38d654da`, based on
+`59976f8baf9b3984bb52456c4c59d088ae248ff5`. Commit
+`38da2dff6a3bbc4790eaabf06ae695d468f69642` added documentation only. A later
+disconnected cleanup regression changes only test code and these notes; runtime
+code and the wire contract remain identical. The native executable built by
 the integration-test command has SHA-256
 `762cb4f003ffec9ffb0a90ce3ad1e7131b352c1d0080d2706ff9cda447f17ad5`.
 
@@ -135,6 +147,7 @@ cargo build --manifest-path codex-rs/Cargo.toml -p codex-rmcp-client --bin test_
 cargo test --manifest-path codex-rs/Cargo.toml -p codex-app-server-protocol --lib -- --test-threads=2
 cargo test --manifest-path codex-rs/Cargo.toml -p codex-app-server --lib -- --test-threads=2
 cargo test --manifest-path codex-rs/Cargo.toml -p codex-app-server --test all dynamic_tools -- --test-threads=2
+cargo test --manifest-path codex-rs/Cargo.toml -p codex-app-server --lib dynamic_tool_ownership -- --test-threads=2
 ```
 
 The MCP fixture binary is required by the existing disconnect-during-startup
@@ -144,8 +157,9 @@ dynamic-tool test; the larger test stack above preserves the native check.
 | Check | Native result |
 | --- | --- |
 | Protocol library and stable/experimental schema fixtures | 323 passed, 1 intentional fixture-writer skip |
-| App-server library, including callback/auth/lifecycle regressions | 398 passed, no skips |
+| Initial app-server library, including callback/auth/lifecycle regressions | 398 passed, no skips |
 | Dynamic-tool integration selection | 17 passed: 5 owned, 11 legacy, 1 nonexperimental API case |
+| Follow-up ownership state suite, including disconnected reclaim/clear | 5 passed, no skips |
 | Changed Rust files, documentation shell block and whitespace | Scoped rustfmt, bash syntax and git diff checks passed |
 
 The ownership acceptance starts an actual app-server binary on a temporary
