@@ -22,12 +22,7 @@ claimed by this method. A live connection may update or clear its own tools;
 another live owner's name, even with that owner's capability. A reconnecting
 connection must provide the correct capability for each disconnected name it
 requests. Unexpected token keys, wrong tokens and retired tokens are rejected.
-Capabilities cannot promote legacy tools or resurrect registrations cleared in
-the current server process. An unknown token supplied for a name absent from
-both ownership and the legacy catalog is accepted as a fresh-addition hint:
-the caller gets a newly minted capability, never authority derived from the hint.
-This allows a durable harness journal to survive server process restart without
-retrying arbitrary token errors or dropping its saved state.
+Capabilities cannot promote legacy tools or resurrect cleared registrations.
 The response returns the capabilities for the resulting requested set, allowing
 a trusted harness to persist them privately before using its tools.
 
@@ -42,15 +37,11 @@ broker authority. Retain recovery state if either transaction fails. Tokenless
 reservation; its empty response is not proof of global removal.
 
 Every new registration receives a random per-name capability. Tokens are kept
-only in active server ownership state and the sensitive RPC params/response, with
+only in server ownership state and the sensitive RPC params/response, with
 redacted Debug formatting; analytics does not capture this RPC. Tokens never
 enter core tool specs, thread items, conversation history or rollouts. Do not log
 raw RPC frames or place capabilities in tool schemas, arguments or user-facing
 messages. A host must protect its saved capabilities as credentials.
-Process-local hashes of every issued or consumed capability remain after clear;
-both the replacement token and an accepted old-process hint are rejected for
-absent names until process exit. These hashes commit only after the idle catalog
-mutation succeeds, so failed or busy mutations cannot poison recovery retries.
 
 ## Routing, disconnect and lifecycle
 
@@ -79,13 +70,16 @@ must explicitly reclaim its reserved runtime tools with capabilities. Resume of
 an already loaded thread preserves its catalog/ownership. Fork creates a new
 thread and does not inherit runtime ownership or capabilities. A server process
 restart discards this runtime-only registry, so recovery across server restart
-requires fresh explicit addition to the newly loaded catalog. A saved old-process
-token may accompany that addition only when the name is absent; the response
-replaces it with a new capability. Unknown hints cannot claim legacy names,
-live registrations or disconnected reservations, and do not authenticate a
-restart or prove previous ownership. Existing registrations still require their
-current exact capability for reconnect. Current-process issued capabilities
-cannot be moved to a new name or fork.
+requires fresh explicit addition to the newly loaded catalog. Tokens from the
+old process cannot reclaim a newly registered name.
+
+A trusted harness may offer explicit administrator restoration after a verified
+server process restart: resume metadata, request a fresh addition without saved
+tokens, durably acknowledge the replacement capability, then restore central
+registration with the same durable epoch and operation IDs. Ordinary resume must
+not infer restart from a token error or automatically retry without tokens.
+Disconnected revoked cleanup still reclaims with the exact current token before
+clearing, with broker readiness and registration disabled throughout.
 
 The legacy `thread/dynamicTools/set` rejects a catalog containing owned or
 reserved names, rather than overwriting/clearing them. Other ownership setters
@@ -140,11 +134,13 @@ Do not abort that transaction between core acceptance and ownership commit.
 
 ## Build and evidence
 
-Validated Rust source: `0ede1549cc81dc9245c72965e58deace9f471997`, based on
-`59976f8baf9b3984bb52456c4c59d088ae248ff5`. This includes process-restart hint
-recovery and process-local capability tombstones, with the original wire shape
-unchanged. The native executable built by the integration-test command has
-SHA-256 `8757fc60d29f3a37208a540ba4c544f908253620de0f90d66ca5ed8847a689a0`.
+Initial full-suite Rust source: `4bf1db184c24617d7ccd40a469f0093a38d654da`, based on
+`59976f8baf9b3984bb52456c4c59d088ae248ff5`. Commit
+`38da2dff6a3bbc4790eaabf06ae695d468f69642` added documentation only. A later
+disconnected cleanup regression changes only test code and these notes; runtime
+code and the wire contract remain identical. The native executable built by
+the integration-test command has SHA-256
+`762cb4f003ffec9ffb0a90ce3ad1e7131b352c1d0080d2706ff9cda447f17ad5`.
 
 Validation used Rust/Cargo 1.95.0 on `x86_64-unknown-linux-gnu`, an unoptimized
 build without debug information, two compilation jobs and two test threads.
@@ -169,10 +165,9 @@ dynamic-tool test; the larger test stack above preserves the native check.
 | Check | Native result |
 | --- | --- |
 | Protocol library and stable/experimental schema fixtures | 323 passed, 1 intentional fixture-writer skip |
-| App-server library, including callback/auth/lifecycle and restart regressions | 401 passed, no skips |
-| Dynamic-tool integration selection | 18 passed: 6 owned, 11 legacy, 1 nonexperimental API case |
-| Ownership state selection, including disconnected cleanup and restart retirement | 7 passed, no skips (included in the library total) |
-| Broker shared-owned and private-patched adapter acceptance | 2 passed with Go race detection, no skips |
+| Initial app-server library, including callback/auth/lifecycle regressions | 398 passed, no skips |
+| Dynamic-tool integration selection | 17 passed: 5 owned, 11 legacy, 1 nonexperimental API case |
+| Follow-up ownership state suite, including disconnected reclaim/clear | 5 passed, no skips |
 | Changed Rust files, documentation shell block and whitespace | Scoped rustfmt, bash syntax and git diff checks passed |
 
 The ownership acceptance starts an actual app-server binary on a temporary
@@ -181,30 +176,51 @@ Two subscribed clients prove owner-only callbacks and ordinary item events for
 a nonexperimental client. Result/error spoofing, active-turn rollback, scoped
 catalogs, token recovery/retirement, disconnect without replay, unload/resume,
 fork isolation and absence of capabilities from model catalogs/items/history
-are checked. The restart regression kills a real process with a callback pending,
-resumes the same persisted thread in a second process, replaces its old token,
-routes only future calls and rejects both capabilities after clear. Stable
-protocol exports remain byte-identical to the base revision.
+are checked. Stable protocol exports remain byte-identical to the base revision.
 
-Broker adapter acceptance used source
-`2046e45a484b7b2fe7a94745054de247b1cd965b`, Go 1.26.4, two compilation jobs and
-the executable hash above. Both fixtures passed, each recording exactly two
-mock GitHub effects and leaving its disposable binding revoked. The shared
-fixture checked nonowner request isolation, forged result/error rejection,
-ordinary item visibility, reconnect with the same token, restart with a fresh
-token, stable broker epoch, and disconnected revoked-reservation cleanup. Its
-restart uses explicit administrator restoration; the separate native Rust
-process regression checks addition with the retained old token itself.
+No live daemon, real thread, host account/service/key or installed software was
+modified. Closed-source desktop UI and real broker mutations were not exercised;
+strict native broker harness evidence is recorded below.
+
+## Strict restoration and broker acceptance
+
+The canceled runtime change in `0ede1549cc81dc9245c72965e58deace9f471997`
+has been reverted. Runtime source again matches
+`4bf1db184c24617d7ccd40a469f0093a38d654da`; the disconnected cleanup regression
+from `e331ad862163eff5037ac5f52428fea52f265f08` is retained unchanged. Unknown
+or retired reconnect tokens are rejected even when the name is absent. The
+historical change remains in Git history, not in the deliverable runtime.
+
+Strict source `38da2dff6a3bbc4790eaabf06ae695d468f69642` was rebuilt natively
+with the temporary pinned toolchain. It reproduced the exact executable SHA-256
+`762cb4f003ffec9ffb0a90ce3ad1e7131b352c1d0080d2706ff9cda447f17ad5` and passed
+all 17 selected dynamic-tool integrations. This executable has the same runtime
+source as the restored branch; the later cleanup regression changes tests only.
+
+Exact broker source `2046e45a484b7b2fe7a94745054de247b1cd965b` passed both
+shared-owned and private-patched native adapter fixtures with Go 1.26.4 race
+detection against this strict binary. Each fixture records exactly two mock
+GitHub effects and leaves its disposable binding revoked. Shared acceptance
+checks result/error spoof rejection, owner-only calls, nonowner item visibility,
+same-token reconnect, explicit administrator restore after its own process
+restart, stable epoch and operation IDs, reconciliation without replay, and
+revoked disconnect/reclaim-only clear followed by fresh add/clear.
+
+All 12 Python tests passed. Full native Go race validation passed 90 top-level
+tests plus 103 subtests, with only the existing subprocess-only `TestCrashHelper`
+skipped. Both native adapter fixtures were enabled in that full suite. Vet passed
+without diagnostics. These checks use disposable server/model/broker fixtures;
+closed-source desktop UI and real GitHub mutations remain untested.
 
 ```sh
-BROKER_TEST_OWNED_APP_SERVER=/path/to/validated/codex-app-server \
-BROKER_TEST_PATCHED_APP_SERVER=/path/to/validated/codex-app-server \
-GOTOOLCHAIN=local GOMAXPROCS=2 \
-go test -p 2 -race ./broker \
-  -run 'TestCodex(SharedOwned|PrivatePatched)AppServerAdapter' -count=1 -v
+BROKER_TEST_OWNED_APP_SERVER=/path/to/strict/codex-app-server \
+BROKER_TEST_PATCHED_APP_SERVER=/path/to/strict/codex-app-server \
+GOTOOLCHAIN=local GOMAXPROCS=2 GOCACHE=/path/to/temporary/writable/cache \
+go test -p 2 -race -count=1 -v ./broker \
+  -run 'TestCodex(SharedOwned|PrivatePatched)AppServerAdapter'
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_codex_adapter.py -v
 ```
 
-Run this command from an isolated checkout of the broker revision above with
-its supported Go toolchain and Python websocket-client dependency available.
-No live daemon, real thread, host account/service/key or installed software was
-modified. Closed-source desktop UI and real GitHub mutations were not exercised.
+Run this from an isolated checkout of the exact broker revision. Its supported
+Go toolchain and Python websocket-client must be available. Run the full Go race
+suite with both binary environment variables set, followed by `go vet -p 2 ./...`.
