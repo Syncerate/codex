@@ -486,3 +486,33 @@ and out-of-scope item IDs return invalid params (`-32602`) with
 Omitted or null cursors preserve normal first-page behavior. Continue anchored
 pages with the returned opaque string `nextCursor`; response fields and
 `backwardsCursor` semantics are unchanged.
+
+
+### Experimental runtime dynamic tools (Syncerate fork)
+
+Clients initialized with `capabilities.experimentalApi: true` can call
+`thread/dynamicTools/set` on a loaded, idle thread:
+
+```json
+{"id": 10, "method": "thread/dynamicTools/set", "params": {"threadId": "<thread-id>", "dynamicTools": [{"type": "function", "name": "broker_operation", "description": "Request an authorized broker operation", "inputSchema": {"type": "object", "properties": {}}}]}}
+```
+
+The result is `{}`. The list replaces **all** dynamic tools; `[]` clears them.
+The same schema and namespace validation used by `thread/start` applies.
+Updates run through Core's ordered submission queue and reject active turns,
+including turns waiting for a dynamic tool response, and realtime conversations.
+The acknowledgement confirms the in-memory update has completed. Future turns
+capture the new list; existing contexts retain their previous tools.
+
+This operation does not rewrite rollouts, fork lineage offsets, or SQLite state.
+After unload or restart, resume restores the original stored startup tools. A
+trusted adapter must re-register its runtime tool list before starting a turn.
+Forks use their existing persisted-history behavior; runtime registrations are
+not a durable inheritance mechanism. Register independently on each principal's
+thread. Missing or unloaded thread IDs are errors; resume the thread first.
+
+Callback delivery remains the existing `item/tool/call` mechanism. This endpoint
+does not grant exclusive callback ownership or authenticate a broker principal.
+A broker adapter must use protected harness callbacks for thread/turn/call IDs,
+resolve its own principal, and protect its connection from agent-controlled
+clients. Never use model-supplied tool arguments as identity or authorization.

@@ -628,6 +628,13 @@ pub enum Op {
         reply: oneshot::Sender<CodexResult<TurnInputSubmission>>,
     },
 
+    /// Replace runtime dynamic tools through the ordered submission queue.
+    /// Only an idle session can accept the update; no rollout metadata is changed.
+    SetDynamicTools {
+        tools: Vec<DynamicToolSpec>,
+        reply: oneshot::Sender<CodexResult<()>>,
+    },
+
     /// Resume an interrupted regular turn.
     RecoverTurn {
         thread_settings: ThreadSettingsOverrides,
@@ -942,6 +949,7 @@ impl Op {
             Self::RealtimeConversationClose => "realtime_conversation_close",
             Self::RealtimeConversationListVoices => "realtime_conversation_list_voices",
             Self::TurnInput { .. } => "turn_input",
+            Self::SetDynamicTools { .. } => "set_dynamic_tools",
             Self::RecoverTurn { .. } => "recover_turn",
             Self::SuspendTurnAndShutdown { .. } => "suspend_turn_and_shutdown",
             Self::ThreadSettings { .. } => "thread_settings",

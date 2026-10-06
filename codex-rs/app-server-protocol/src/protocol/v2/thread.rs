@@ -1120,6 +1120,22 @@ impl ThreadMemoryMode {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export_to = "v2/")]
+pub struct ThreadDynamicToolsSetParams {
+    pub thread_id: String,
+    /// Replace all dynamic tools for future turns. An empty list clears them.
+    /// Requires a loaded, idle thread. Runtime only: resume restores the stored
+    /// startup tools, so clients must register their runtime tools again.
+    pub dynamic_tools: Vec<DynamicToolSpec>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub struct ThreadDynamicToolsSetResponse {}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
 pub struct ThreadMemoryModeSetParams {
     pub thread_id: String,
     pub mode: ThreadMemoryMode,

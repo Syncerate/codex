@@ -13096,3 +13096,43 @@ async fn session_start_hooks_require_project_trust_without_config_toml() -> std:
 
     Ok(())
 }
+
+#[tokio::test]
+async fn runtime_dynamic_tools_leave_existing_contexts_unchanged() {
+    let (session, old_context, _rx) = make_session_and_context_with_rx().await;
+    let tools = vec![
+        serde_json::from_value::<DynamicToolSpec>(serde_json::json!({
+            "type": "function", "name": "runtime_tool", "description": "test",
+            "inputSchema": {"type": "object", "properties": {}}
+        }))
+        .expect("valid tool"),
+    ];
+    session
+        .set_dynamic_tools_if_idle(tools.clone())
+        .await
+        .expect("idle update");
+    assert!(old_context.dynamic_tools.is_empty());
+    assert_eq!(session.dynamic_tools().await, tools);
+    let new_context = session
+        .new_turn_with_default_settings("after-update".into(), Default::default())
+        .await;
+    assert_eq!(new_context.dynamic_tools, tools);
+
+    *session.active_turn.lock().await = Some(ActiveTurn::default());
+    let error = session
+        .set_dynamic_tools_if_idle(Vec::new())
+        .await
+        .expect_err("active turn must reject the update");
+    assert!(matches!(
+        error.details(),
+        codex_protocol::error::CodexErrorDetails::InvalidRequest(_)
+    ));
+    assert_eq!(session.dynamic_tools().await, tools);
+    *session.active_turn.lock().await = None;
+    session
+        .set_dynamic_tools_if_idle(Vec::new())
+        .await
+        .expect("clear");
+    assert!(session.dynamic_tools().await.is_empty());
+    assert_eq!(new_context.dynamic_tools, tools);
+}

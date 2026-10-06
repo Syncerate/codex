@@ -582,6 +582,13 @@ struct PendingDynamicToolCall {
 }
 
 async fn start_function_dynamic_tool_call(call_id: &str) -> Result<PendingDynamicToolCall> {
+    start_function_dynamic_tool_call_with_runtime_tools(call_id, false).await
+}
+
+async fn start_function_dynamic_tool_call_with_runtime_tools(
+    call_id: &str,
+    runtime_tools: bool,
+) -> Result<PendingDynamicToolCall> {
     let tool_name = "demo_tool";
     let tool_args = json!({ "city": "Paris" });
     let tool_call_arguments = serde_json::to_string(&tool_args)?;
@@ -626,7 +633,7 @@ async fn start_function_dynamic_tool_call(call_id: &str) -> Result<PendingDynami
 
     let thread_req = mcp
         .send_thread_start_request_with_auto_env(ThreadStartParams {
-            dynamic_tools: Some(vec![dynamic_tool]),
+            dynamic_tools: (!runtime_tools).then(|| vec![dynamic_tool.clone()]),
             ..Default::default()
         })
         .await?;
@@ -637,6 +644,9 @@ async fn start_function_dynamic_tool_call(call_id: &str) -> Result<PendingDynami
     .await??;
     let ThreadStartResponse { thread, .. } = to_response::<ThreadStartResponse>(thread_resp)?;
     let thread_id = thread.id.clone();
+    if runtime_tools {
+        set_runtime_tools(&mut mcp, &thread_id, json!([dynamic_tool])).await?;
+    }
 
     let turn_req = mcp
         .send_turn_start_request(TurnStartParams {
@@ -1002,4 +1012,352 @@ async fn wait_for_dynamic_tool_completed(
             return Ok(completed);
         }
     }
+}
+
+async fn set_runtime_tools(mcp: &mut TestAppServer, thread_id: &str, tools: Value) -> Result<()> {
+    let request = mcp
+        .send_raw_request(
+            "thread/dynamicTools/set",
+            Some(json!({"threadId": thread_id, "dynamicTools": tools})),
+        )
+        .await?;
+    let response = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(request)),
+    )
+    .await??;
+    assert_eq!(response.result, json!({}));
+    Ok(())
+}
+
+#[tokio::test]
+async fn runtime_dynamic_tools_round_trip_rejects_active_turn_updates() -> Result<()> {
+    let call_id = "runtime-call";
+    let PendingDynamicToolCall {
+        mut mcp,
+        server,
+        request_id,
+        params,
+    } = start_function_dynamic_tool_call_with_runtime_tools(call_id, true).await?;
+
+    // While the harness callback is pending, clearing must fail without
+    // changing the current turn's tools or its response routing.
+    let update = mcp
+        .send_raw_request(
+            "thread/dynamicTools/set",
+            Some(json!({"threadId": params.thread_id, "dynamicTools": []})),
+        )
+        .await?;
+    let error = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_error_message(RequestId::Integer(update)),
+    )
+    .await??;
+    assert_eq!(error.error.code, -32600);
+    assert!(error.error.message.contains("idle thread"));
+    mcp.send_response(
+        request_id,
+        json!({"success": true, "contentItems": [{"type": "inputText", "text": "runtime-ok"}]}),
+    )
+    .await?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("turn/completed"),
+    )
+    .await??;
+    let bodies = responses_bodies(&server).await?;
+    assert_eq!(bodies.len(), 2);
+    for body in &bodies {
+        assert!(find_tool(body, "demo_tool").is_some());
+    }
+    assert!(
+        bodies[1]["input"]
+            .as_array()
+            .context("input array")?
+            .iter()
+            .any(|item| { item["type"] == "function_call_output" && item["call_id"] == call_id })
+    );
+    set_runtime_tools(&mut mcp, &params.thread_id, json!([])).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn runtime_dynamic_tools_replace_clear_and_restore_startup_tools_on_resume() -> Result<()> {
+    let server = create_mock_responses_server_sequence_unchecked(vec![
+        create_final_assistant_message_sse_response("runtime")?,
+        create_final_assistant_message_sse_response("cleared")?,
+        create_final_assistant_message_sse_response("resumed")?,
+    ])
+    .await;
+    let codex_home = TempDir::new()?;
+    MockResponsesConfig::new(&server.uri()).write(codex_home.path())?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build_initialized()
+        .await?;
+    let tool = |name: &str| {
+        json!({
+            "type": "function", "name": name, "description": "test",
+            "inputSchema": {"type": "object", "properties": {}},
+        })
+    };
+    let request = mcp
+        .send_raw_request(
+            "thread/start",
+            Some(json!({
+                "dynamicTools": [tool("startup_tool")]
+            })),
+        )
+        .await?;
+    let started: ThreadStartResponse = to_response(
+        timeout(
+            DEFAULT_READ_TIMEOUT,
+            mcp.read_stream_until_response_message(RequestId::Integer(request)),
+        )
+        .await??,
+    )?;
+    let thread_id = started.thread.id;
+    set_runtime_tools(&mut mcp, &thread_id, json!([tool("runtime_tool")])).await?;
+
+    // Reuse start-time validation; invalid updates leave the accepted list intact.
+    for tools in [
+        json!([tool("bad.name")]),
+        json!([tool("duplicate"), tool("duplicate")]),
+    ] {
+        let request = mcp
+            .send_raw_request(
+                "thread/dynamicTools/set",
+                Some(json!({
+                    "threadId": thread_id, "dynamicTools": tools
+                })),
+            )
+            .await?;
+        let error = timeout(
+            DEFAULT_READ_TIMEOUT,
+            mcp.read_stream_until_error_message(RequestId::Integer(request)),
+        )
+        .await??;
+        assert_eq!(error.error.code, -32600);
+    }
+    for pass in 0..3 {
+        if pass == 1 {
+            set_runtime_tools(&mut mcp, &thread_id, json!([])).await?;
+        }
+        if pass == 2 {
+            assert!(
+                timeout(DEFAULT_READ_TIMEOUT, mcp.shutdown_gracefully())
+                    .await??
+                    .success()
+            );
+            mcp = TestAppServer::builder()
+                .with_codex_home(codex_home.path())
+                .build_initialized()
+                .await?;
+            let request = mcp
+                .send_raw_request(
+                    "thread/resume",
+                    Some(json!({
+                        "threadId": thread_id
+                    })),
+                )
+                .await?;
+            timeout(
+                DEFAULT_READ_TIMEOUT,
+                mcp.read_stream_until_response_message(RequestId::Integer(request)),
+            )
+            .await??;
+        }
+        let request = mcp
+            .send_turn_start_request(TurnStartParams {
+                thread_id: thread_id.clone(),
+                input: vec![V2UserInput::Text {
+                    text: "sample".into(),
+                    text_elements: Vec::new(),
+                }],
+                ..Default::default()
+            })
+            .await?;
+        timeout(
+            DEFAULT_READ_TIMEOUT,
+            mcp.read_stream_until_response_message(RequestId::Integer(request)),
+        )
+        .await??;
+        timeout(
+            DEFAULT_READ_TIMEOUT,
+            mcp.read_stream_until_notification_message("turn/completed"),
+        )
+        .await??;
+    }
+    let bodies = responses_bodies(&server).await?;
+    assert_eq!(bodies.len(), 3);
+    assert!(find_tool(&bodies[0], "runtime_tool").is_some());
+    assert!(find_tool(&bodies[0], "startup_tool").is_none());
+    assert!(find_tool(&bodies[1], "runtime_tool").is_none());
+    assert!(find_tool(&bodies[1], "startup_tool").is_none());
+    assert!(find_tool(&bodies[2], "runtime_tool").is_none());
+    assert!(find_tool(&bodies[2], "startup_tool").is_some());
+    Ok(())
+}
+
+#[tokio::test]
+async fn runtime_dynamic_tools_require_experimental_capability_and_loaded_thread() -> Result<()> {
+    let codex_home = TempDir::new()?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
+    mcp.initialize_with_capabilities(
+        codex_app_server_protocol::ClientInfo {
+            name: "runtime-tools-test".into(),
+            title: None,
+            version: "0.1".into(),
+        },
+        None,
+    )
+    .await?;
+    let request = mcp
+        .send_raw_request(
+            "thread/dynamicTools/set",
+            Some(json!({
+                "threadId": codex_protocol::ThreadId::new().to_string(), "dynamicTools": []
+            })),
+        )
+        .await?;
+    let error = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_error_message(RequestId::Integer(request)),
+    )
+    .await??;
+    assert!(error.error.message.contains("experimental"));
+    mcp.shutdown_gracefully().await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build_initialized()
+        .await?;
+    for thread_id in [
+        "invalid".to_string(),
+        codex_protocol::ThreadId::new().to_string(),
+    ] {
+        let request = mcp
+            .send_raw_request(
+                "thread/dynamicTools/set",
+                Some(json!({
+                    "threadId": thread_id, "dynamicTools": []
+                })),
+            )
+            .await?;
+        let error = timeout(
+            DEFAULT_READ_TIMEOUT,
+            mcp.read_stream_until_error_message(RequestId::Integer(request)),
+        )
+        .await??;
+        assert_eq!(error.error.code, -32600);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn runtime_dynamic_tools_preserve_paginated_fork_prefix_offsets() -> Result<()> {
+    let server = create_mock_responses_server_sequence_unchecked(vec![
+        create_final_assistant_message_sse_response("frozen-fork-marker")?,
+        create_final_assistant_message_sse_response("parent-later-marker")?,
+        create_final_assistant_message_sse_response("fork-ok")?,
+    ])
+    .await;
+    let codex_home = TempDir::new()?;
+    MockResponsesConfig::new(&server.uri()).write(codex_home.path())?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build_initialized()
+        .await?;
+    let start = mcp
+        .send_thread_start_request_with_auto_env(ThreadStartParams {
+            history_mode: Some(codex_app_server_protocol::ThreadHistoryMode::Paginated),
+            ..Default::default()
+        })
+        .await?;
+    let started: ThreadStartResponse =
+        timeout(DEFAULT_READ_TIMEOUT, mcp.read_response(start)).await??;
+    let parent = started.thread.id;
+    let path = started.thread.path.context("parent rollout path")?;
+    sample_runtime_tools_thread(&mut mcp, &parent).await?;
+    let fork = mcp
+        .send_thread_fork_request(codex_app_server_protocol::ThreadForkParams {
+            thread_id: parent.clone(),
+            ..Default::default()
+        })
+        .await?;
+    let forked: codex_app_server_protocol::ThreadForkResponse =
+        timeout(DEFAULT_READ_TIMEOUT, mcp.read_response(fork)).await??;
+    let prefix = std::fs::read(&path)?;
+
+    // Large metadata would have shifted a frozen fork boundary under the
+    // rollout-edit approach. Runtime registration must leave these bytes intact.
+    set_runtime_tools(
+        &mut mcp,
+        &parent,
+        json!([{
+            "type": "function", "name": "runtime_tool", "description": "x".repeat(8192),
+            "inputSchema": {"type": "object", "properties": {}}
+        }]),
+    )
+    .await?;
+    assert_eq!(std::fs::read(&path)?, prefix);
+    sample_runtime_tools_thread(&mut mcp, &parent).await?;
+    assert!(std::fs::read(&path)?.starts_with(&prefix));
+    assert!(
+        timeout(DEFAULT_READ_TIMEOUT, mcp.shutdown_gracefully())
+            .await??
+            .success()
+    );
+    mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build_initialized()
+        .await?;
+    let resume = mcp
+        .send_raw_request(
+            "thread/resume",
+            Some(json!({
+                "threadId": forked.thread.id
+            })),
+        )
+        .await?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(resume)),
+    )
+    .await??;
+    sample_runtime_tools_thread(&mut mcp, &forked.thread.id).await?;
+    let bodies = responses_bodies(&server).await?;
+    assert_eq!(bodies.len(), 3);
+    assert!(find_tool(&bodies[1], "runtime_tool").is_some());
+    assert!(find_tool(&bodies[2], "runtime_tool").is_none());
+    let fork_input = serde_json::to_string(&bodies[2]["input"])?;
+    assert!(fork_input.contains("frozen-fork-marker"));
+    assert!(!fork_input.contains("parent-later-marker"));
+    Ok(())
+}
+
+async fn sample_runtime_tools_thread(mcp: &mut TestAppServer, thread_id: &str) -> Result<()> {
+    let request = mcp
+        .send_turn_start_request(TurnStartParams {
+            thread_id: thread_id.to_string(),
+            input: vec![V2UserInput::Text {
+                text: "sample".into(),
+                text_elements: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .await?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(request)),
+    )
+    .await??;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("turn/completed"),
+    )
+    .await??;
+    Ok(())
 }

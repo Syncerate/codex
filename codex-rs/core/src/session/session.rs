@@ -657,6 +657,27 @@ impl Session {
         state.session_configuration.originator.clone()
     }
 
+    pub(crate) async fn dynamic_tools(&self) -> Vec<DynamicToolSpec> {
+        let state = self.state.lock().await;
+        state.session_configuration.dynamic_tools.clone()
+    }
+
+    /// Called only by the submission loop, ordered with turn admission.
+    /// Existing turn contexts retain their captured tools; nothing is persisted.
+    pub(super) async fn set_dynamic_tools_if_idle(
+        &self,
+        tools: Vec<DynamicToolSpec>,
+    ) -> CodexResult<()> {
+        let active = self.active_turn.lock().await;
+        if active.is_some() || self.conversation.running_state().await.is_some() {
+            return Err(CodexErr::InvalidRequest(
+                "dynamic tools can only be set on an idle thread".to_string(),
+            ));
+        }
+        self.state.lock().await.session_configuration.dynamic_tools = tools;
+        Ok(())
+    }
+
     pub(crate) async fn responses_metadata(
         &self,
         step_context: &StepContext,
