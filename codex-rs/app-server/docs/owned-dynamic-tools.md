@@ -172,6 +172,7 @@ dynamic-tool test; the larger test stack above preserves the native check.
 | App-server library, including callback/auth/lifecycle and restart regressions | 401 passed, no skips |
 | Dynamic-tool integration selection | 18 passed: 6 owned, 11 legacy, 1 nonexperimental API case |
 | Ownership state selection, including disconnected cleanup and restart retirement | 7 passed, no skips (included in the library total) |
+| Broker shared-owned and private-patched adapter acceptance | 2 passed with Go race detection, no skips |
 | Changed Rust files, documentation shell block and whitespace | Scoped rustfmt, bash syntax and git diff checks passed |
 
 The ownership acceptance starts an actual app-server binary on a temporary
@@ -185,6 +186,25 @@ resumes the same persisted thread in a second process, replaces its old token,
 routes only future calls and rejects both capabilities after clear. Stable
 protocol exports remain byte-identical to the base revision.
 
+Broker adapter acceptance used source
+`2046e45a484b7b2fe7a94745054de247b1cd965b`, Go 1.26.4, two compilation jobs and
+the executable hash above. Both fixtures passed, each recording exactly two
+mock GitHub effects and leaving its disposable binding revoked. The shared
+fixture checked nonowner request isolation, forged result/error rejection,
+ordinary item visibility, reconnect with the same token, restart with a fresh
+token, stable broker epoch, and disconnected revoked-reservation cleanup. Its
+restart uses explicit administrator restoration; the separate native Rust
+process regression checks addition with the retained old token itself.
+
+```sh
+BROKER_TEST_OWNED_APP_SERVER=/path/to/validated/codex-app-server \
+BROKER_TEST_PATCHED_APP_SERVER=/path/to/validated/codex-app-server \
+GOTOOLCHAIN=local GOMAXPROCS=2 \
+go test -p 2 -race ./broker \
+  -run 'TestCodex(SharedOwned|PrivatePatched)AppServerAdapter' -count=1 -v
+```
+
+Run this command from an isolated checkout of the broker revision above with
+its supported Go toolchain and Python websocket-client dependency available.
 No live daemon, real thread, host account/service/key or installed software was
-modified. Closed-source desktop UI and real broker mutations were not exercised;
-the executable is ready for a subsequent isolated harness acceptance.
+modified. Closed-source desktop UI and real GitHub mutations were not exercised.
