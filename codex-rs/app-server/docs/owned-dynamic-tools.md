@@ -140,13 +140,11 @@ Do not abort that transaction between core acceptance and ownership commit.
 
 ## Build and evidence
 
-Initial full-suite Rust source: `4bf1db184c24617d7ccd40a469f0093a38d654da`, based on
-`59976f8baf9b3984bb52456c4c59d088ae248ff5`. Commit
-`38da2dff6a3bbc4790eaabf06ae695d468f69642` added documentation only. A later
-disconnected cleanup regression changes only test code and these notes; runtime
-code and the wire contract remain identical. The native executable built by
-the integration-test command has SHA-256
-`762cb4f003ffec9ffb0a90ce3ad1e7131b352c1d0080d2706ff9cda447f17ad5`.
+Validated Rust source: `0ede1549cc81dc9245c72965e58deace9f471997`, based on
+`59976f8baf9b3984bb52456c4c59d088ae248ff5`. This includes process-restart hint
+recovery and process-local capability tombstones, with the original wire shape
+unchanged. The native executable built by the integration-test command has
+SHA-256 `8757fc60d29f3a37208a540ba4c544f908253620de0f90d66ca5ed8847a689a0`.
 
 Validation used Rust/Cargo 1.95.0 on `x86_64-unknown-linux-gnu`, an unoptimized
 build without debug information, two compilation jobs and two test threads.
@@ -171,9 +169,9 @@ dynamic-tool test; the larger test stack above preserves the native check.
 | Check | Native result |
 | --- | --- |
 | Protocol library and stable/experimental schema fixtures | 323 passed, 1 intentional fixture-writer skip |
-| Initial app-server library, including callback/auth/lifecycle regressions | 398 passed, no skips |
-| Dynamic-tool integration selection | 17 passed: 5 owned, 11 legacy, 1 nonexperimental API case |
-| Follow-up ownership state suite, including disconnected reclaim/clear | 5 passed, no skips |
+| App-server library, including callback/auth/lifecycle and restart regressions | 401 passed, no skips |
+| Dynamic-tool integration selection | 18 passed: 6 owned, 11 legacy, 1 nonexperimental API case |
+| Ownership state selection, including disconnected cleanup and restart retirement | 7 passed, no skips (included in the library total) |
 | Changed Rust files, documentation shell block and whitespace | Scoped rustfmt, bash syntax and git diff checks passed |
 
 The ownership acceptance starts an actual app-server binary on a temporary
@@ -182,7 +180,10 @@ Two subscribed clients prove owner-only callbacks and ordinary item events for
 a nonexperimental client. Result/error spoofing, active-turn rollback, scoped
 catalogs, token recovery/retirement, disconnect without replay, unload/resume,
 fork isolation and absence of capabilities from model catalogs/items/history
-are checked. Stable protocol exports remain byte-identical to the base revision.
+are checked. The restart regression kills a real process with a callback pending,
+resumes the same persisted thread in a second process, replaces its old token,
+routes only future calls and rejects both capabilities after clear. Stable
+protocol exports remain byte-identical to the base revision.
 
 No live daemon, real thread, host account/service/key or installed software was
 modified. Closed-source desktop UI and real broker mutations were not exercised;
