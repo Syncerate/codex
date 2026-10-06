@@ -210,6 +210,8 @@ use codex_app_server_protocol::ThreadDecrementElicitationResponse;
 use codex_app_server_protocol::ThreadDeleteParams;
 use codex_app_server_protocol::ThreadDeleteResponse;
 use codex_app_server_protocol::ThreadDeletedNotification;
+use codex_app_server_protocol::ThreadDynamicToolsOwnedSetParams;
+use codex_app_server_protocol::ThreadDynamicToolsOwnedSetResponse;
 use codex_app_server_protocol::ThreadDynamicToolsSetParams;
 use codex_app_server_protocol::ThreadDynamicToolsSetResponse;
 use codex_app_server_protocol::ThreadForkParams;

@@ -25,7 +25,10 @@ pub(crate) async fn on_call_response(
         Ok(Ok(value)) => decode_response(value),
         Ok(Err(err)) if is_turn_transition_server_request_error(&err) => return,
         Ok(Err(err)) => {
-            error!("request failed with client error: {err:?}");
+            error!(
+                code = err.code,
+                "dynamic tool request failed with client error"
+            );
             fallback_response("dynamic tool request failed")
         }
         Err(err) => {
@@ -91,8 +94,9 @@ fn decode_response(value: serde_json::Value) -> (DynamicToolCallResponse, Option
             fallback_response(INVALID_AUDIO_URL_ERROR)
         }
         Ok(response) => (response, None),
-        Err(err) => {
-            error!("failed to deserialize DynamicToolCallResponse: {err}");
+        Err(_) => {
+            // Invalid string values in serde errors may contain client secrets.
+            error!("failed to deserialize DynamicToolCallResponse");
             fallback_response("dynamic tool response was invalid")
         }
     }

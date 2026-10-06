@@ -127,6 +127,7 @@ pub(crate) enum OutgoingEnvelope {
 
 /// Sends messages to the client and manages request callbacks.
 pub(crate) struct OutgoingMessageSender {
+    pub(crate) dynamic_tool_ownership: Mutex<crate::dynamic_tool_ownership::DynamicToolOwnership>,
     verification_auth: OnceLock<Arc<codex_login::AuthManager>>,
     verification_connections: Mutex<HashSet<ConnectionId>>,
     next_server_request_id: AtomicI64,
@@ -147,6 +148,7 @@ pub(crate) struct ThreadScopedOutgoingMessageSender {
 }
 
 struct PendingCallbackEntry {
+    dynamic_tool_owner: Option<ConnectionId>,
     verification_owner: Option<ConnectionId>,
     verification_auth_revision: Option<u64>,
     verification_identity: Option<user_verification_auth::Identity>,
@@ -243,6 +245,7 @@ impl OutgoingMessageSender {
         analytics_events_client: AnalyticsEventsClient,
     ) -> Self {
         Self {
+            dynamic_tool_ownership: Mutex::new(Default::default()),
             verification_auth: OnceLock::new(),
             verification_connections: Mutex::new(HashSet::new()),
             next_server_request_id: AtomicI64::new(0),
@@ -272,8 +275,33 @@ impl OutgoingMessageSender {
         }
     }
 
+    pub(crate) async fn disconnect_connection_owned_requests(&self, connection_id: ConnectionId) {
+        // Verification admission must not wait for an unrelated catalog update.
+        // Release its eligibility lock before taking ownership -> callbacks.
+        self.verification_connections
+            .lock()
+            .await
+            .remove(&connection_id);
+        let mut ownership = self.dynamic_tool_ownership.lock().await;
+        ownership.disconnect(connection_id);
+        // Both registration paths are fenced before their callbacks are removed
+        // together under the same callback lock.
+        self.request_id_to_callback.lock().await.retain(|_, entry| {
+            entry.dynamic_tool_owner != Some(connection_id)
+                && entry.verification_owner != Some(connection_id)
+        });
+    }
+
+    pub(crate) async fn unload_dynamic_tool_thread(&self, thread_id: ThreadId) {
+        let mut ownership = self.dynamic_tool_ownership.lock().await;
+        ownership.unload(thread_id);
+        self.request_id_to_callback.lock().await.retain(|_, entry| {
+            entry.thread_id != Some(thread_id) || entry.dynamic_tool_owner.is_none()
+        });
+    }
+
     pub(crate) async fn connection_closed(&self, connection_id: ConnectionId) {
-        self.disconnect_user_verification_connection(connection_id)
+        self.disconnect_connection_owned_requests(connection_id)
             .await;
         let mut request_contexts = self.request_contexts.lock().await;
         request_contexts.retain(|request_id, _| request_id.connection_id != connection_id);
@@ -336,6 +364,17 @@ impl OutgoingMessageSender {
         let id = self.next_request_id();
         let outgoing_message_id = id.clone();
         let request = request.request_with_id(outgoing_message_id.clone());
+        let thread_id = if let ServerRequest::DynamicToolCall { params, .. } = &request {
+            let parsed = ThreadId::from_string(&params.thread_id).ok();
+            if parsed.is_none() || (thread_id.is_some() && thread_id != parsed) {
+                // A server-side scoping mismatch must not target another thread's owner.
+                let (_, receiver) = oneshot::channel();
+                return (outgoing_message_id, receiver);
+            }
+            parsed
+        } else {
+            thread_id
+        };
         let user_verification = matches!(
             &request,
             ServerRequest::McpServerElicitationRequest { params, .. }
@@ -355,6 +394,39 @@ impl OutgoingMessageSender {
                     || verification_identity != self.verification_identity())
         };
         let (tx_approve, rx_approve) = oneshot::channel();
+        // Catalog commit, owner selection, callback insertion and queueing share
+        // one lock with disconnect. No request can observe a half-committed set.
+        let ownership = if matches!(&request, ServerRequest::DynamicToolCall { .. }) {
+            Some(self.dynamic_tool_ownership.lock().await)
+        } else {
+            None
+        };
+        let dynamic_tool_owner = if let ServerRequest::DynamicToolCall { params, .. } = &request {
+            let route_thread = ThreadId::from_string(&params.thread_id).ok();
+            match route_thread.and_then(|id| {
+                ownership
+                    .as_ref()
+                    .map(|state| state.route(id, params.namespace.as_deref(), &params.tool))
+            }) {
+                Some(crate::dynamic_tool_ownership::ToolRoute::Owned(Some(owner))) => {
+                    if connection_ids.is_some_and(|ids| !ids.contains(&owner)) {
+                        return (outgoing_message_id, rx_approve);
+                    }
+                    Some(owner)
+                }
+                Some(crate::dynamic_tool_ownership::ToolRoute::Owned(None)) => {
+                    return (outgoing_message_id, rx_approve);
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+        // Legacy calls keep their existing backpressure behavior; their names
+        // cannot be retroactively claimed. Do not block owner disconnect on it.
+        if dynamic_tool_owner.is_none() {
+            drop(ownership);
+        }
         // One app owns this ceremony. Reconnect and other subscribers cannot answer it.
         let verification_owner = if user_verification {
             let eligible = self.verification_connections.lock().await;
@@ -367,7 +439,9 @@ impl OutgoingMessageSender {
         if user_verification && (verification_owner.is_none() || auth_changed()) {
             return (outgoing_message_id, rx_approve);
         }
-        let connection_ids = if user_verification {
+        let connection_ids = if let Some(owner) = dynamic_tool_owner.as_ref() {
+            Some(std::slice::from_ref(owner))
+        } else if user_verification {
             verification_owner.as_ref().map(std::slice::from_ref)
         } else {
             connection_ids
@@ -377,6 +451,7 @@ impl OutgoingMessageSender {
             request_id_to_callback.insert(
                 id,
                 PendingCallbackEntry {
+                    dynamic_tool_owner,
                     verification_owner,
                     verification_auth_revision,
                     verification_identity: verification_identity.clone(),
@@ -401,6 +476,28 @@ impl OutgoingMessageSender {
         }
 
         let outgoing_message = OutgoingMessage::Request(request.clone());
+        if let Some(owner) = dynamic_tool_owner {
+            // Enqueue atomically under the ownership lock. Full queues fail the
+            // callback instead of delaying disconnect or retrying an uncertain call.
+            if self
+                .sender
+                .try_send(OutgoingEnvelope::ToConnection {
+                    connection_id: owner,
+                    message: outgoing_message,
+                    write_complete_tx: None,
+                })
+                .is_err()
+            {
+                self.request_id_to_callback
+                    .lock()
+                    .await
+                    .remove(&outgoing_message_id);
+            } else {
+                self.analytics_events_client
+                    .track_server_request(owner.0, request);
+            }
+            return (outgoing_message_id, rx_approve);
+        }
         let send_result = match connection_ids {
             None => {
                 self.sender
@@ -476,6 +573,7 @@ impl OutgoingMessageSender {
             Some((id, entry)) => {
                 let completed_at_ms = now_unix_timestamp_ms();
                 if entry.verification_owner.is_none()
+                    && entry.dynamic_tool_owner.is_none()
                     && let Ok(response) = entry.request.response_from_result(result.clone())
                 {
                     tracing::info!("<- response: {response:?}");
@@ -565,6 +663,39 @@ impl OutgoingMessageSender {
     ) -> Option<(RequestId, PendingCallbackEntry)> {
         let mut callbacks = self.request_id_to_callback.lock().await;
         let entry = callbacks.get(id)?;
+        if let Some(owner) = entry.dynamic_tool_owner {
+            if owner != connection_id {
+                return None;
+            }
+            // Only owned callbacks need the catalog fence. Release the callback
+            // lock before acquiring it to preserve ownership -> callbacks order.
+            drop(callbacks);
+            let ownership = self.dynamic_tool_ownership.lock().await;
+            let mut callbacks = self.request_id_to_callback.lock().await;
+            let entry = callbacks.get(id)?;
+            if entry.dynamic_tool_owner != Some(connection_id) {
+                return None;
+            }
+            let eligible = match &entry.request {
+                ServerRequest::DynamicToolCall { params, .. } => ThreadId::from_string(
+                    &params.thread_id,
+                )
+                .ok()
+                .is_some_and(|thread_id| {
+                    matches!(
+                        ownership.route(thread_id, params.namespace.as_deref(), &params.tool),
+                        crate::dynamic_tool_ownership::ToolRoute::Owned(Some(owner))
+                            if owner == connection_id
+                    )
+                }),
+                _ => false,
+            };
+            if !eligible {
+                callbacks.remove(id);
+                return None;
+            }
+            return callbacks.remove_entry(id);
+        }
         if let Some(owner) = entry.verification_owner {
             if owner != connection_id {
                 return None;
@@ -587,8 +718,10 @@ impl OutgoingMessageSender {
         let mut requests = request_id_to_callback
             .values()
             .filter_map(|entry| {
-                (entry.thread_id == Some(thread_id) && entry.verification_owner.is_none())
-                    .then_some(entry.request.clone())
+                (entry.thread_id == Some(thread_id)
+                    && entry.verification_owner.is_none()
+                    && entry.dynamic_tool_owner.is_none())
+                .then_some(entry.request.clone())
             })
             .collect::<Vec<_>>();
         requests.sort_by(|left, right| left.id().cmp(right.id()));
@@ -901,6 +1034,10 @@ fn timestamped_server_notification(notification: ServerNotification) -> Outgoing
         emitted_at_ms: Some(now_unix_timestamp_ms().try_into().unwrap_or_default()),
     })
 }
+
+#[cfg(test)]
+#[path = "dynamic_tool_routing_tests.rs"]
+mod dynamic_tool_routing_tests;
 
 #[cfg(test)]
 #[path = "user_verification_ownership_tests.rs"]

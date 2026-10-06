@@ -85,6 +85,7 @@ mod model_provider_enforcement;
 mod multi_agent_v2_developer_instructions;
 mod otel;
 mod output_schema;
+mod owned_dynamic_tools;
 mod permission_profile_list;
 mod plan_item;
 mod plugin_install;
