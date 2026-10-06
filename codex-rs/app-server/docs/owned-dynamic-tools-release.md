@@ -128,7 +128,7 @@ changed semantics, so generated fixes were preserved separately and reverted
 before building the exact tested source. This is not a warning-free lint claim.
 
 The protected Go mock-broker managed fixture passed with race detection against
-broker commit `ed256f61f8b2d5647c7f91b1d009d5c4f9a1116b`:
+broker commit `dd6008183cd89e5c9cadb5774f7276b6e1084182`:
 
 ```sh
 BROKER_TEST_MANAGED_CODEX_CLI="$FORK_PACKAGE/bin/codex" \
@@ -138,8 +138,8 @@ go test -p2 -race -count=1 -v ./broker \
   -run '^TestCodexManagedSharedFullPackageAdapter$'
 ```
 
-The testcase passed in 67.26 seconds and checked exactly two mock effects and
-one revoked binding. Four managed-boundary and fourteen controller/Unix Python
+The latest testcase passed in 69.07 seconds and checked exactly two mock effects and
+one revoked binding. Four managed-boundary and fifteen controller/Unix Python
 tests also passed. The external driver used only private disposable homes and
 mock admission, with auto-update disabled and no credentials. Actual managed
 executable hashes were checked, rather than relying on the shared version string.
@@ -212,3 +212,9 @@ package assembly and disposable managed qualification after storage is available
 The owning broker's exact Unix-transport fixture pin and managed-socket interface
 are also required before final adapter acceptance. No release branch was pushed
 while these required checks remained incomplete.
+
+The later adapter shutdown fix was independently qualified against the unchanged
+package. Its idle Unix socketpair regression verifies that stream shutdown wakes
+the reader before cleanup. The earlier successful managed receipt and failed
+driver diagnostics are retained; this rerun replaces the adapter fixture pin,
+not the frozen build source or any package digest.

@@ -438,7 +438,7 @@
     }
   ],
   "qualification": {
-    "brokerPin": "ed256f61f8b2d5647c7f91b1d009d5c4f9a1116b",
+    "brokerPin": "dd6008183cd89e5c9cadb5774f7276b6e1084182",
     "nativePassed": 723,
     "managedGoRaceFixture": "PASS",
     "stockProxy": "PASS",
