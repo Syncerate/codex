@@ -110,6 +110,7 @@ mod connection_rpc_gate;
 mod current_time;
 mod daemon_thread_recovery;
 mod dynamic_tools;
+mod dynamic_tool_ownership;
 mod effective_plugin_change;
 mod error_code;
 mod extensions;

@@ -2139,6 +2139,7 @@ dependencies = [
  "codex-web-search-extension",
  "codex-websocket-auth",
  "codex-windows-sandbox",
+ "constant_time_eq",
  "core_test_support",
  "flate2",
  "futures",

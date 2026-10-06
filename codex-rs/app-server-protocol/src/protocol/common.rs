@@ -695,6 +695,12 @@ client_request_definitions! {
         serialization: thread_id(params.thread_id),
         response: v2::ThreadDynamicToolsSetResponse,
     },
+    #[experimental("thread/dynamicTools/owned/set")]
+    ThreadDynamicToolsOwnedSet => "thread/dynamicTools/owned/set" {
+        params: v2::ThreadDynamicToolsOwnedSetParams,
+        serialization: thread_id(params.thread_id),
+        response: v2::ThreadDynamicToolsOwnedSetResponse,
+    },
     #[experimental("thread/memoryMode/set")]
     ThreadMemoryModeSet => "thread/memoryMode/set" {
         params: v2::ThreadMemoryModeSetParams,
@@ -4372,6 +4378,100 @@ mod tests {
                 }))
                 .is_err()
             );
+        }
+    }
+
+    #[test]
+    fn owned_dynamic_tools_are_experimental_and_scoped_to_the_thread() {
+        let request: ClientRequest = serde_json::from_value(json!({
+            "id": 1, "method": "thread/dynamicTools/owned/set",
+            "params": {"threadId": "thread", "dynamicTools": []}
+        }))
+        .expect("valid owned replacement");
+        assert_eq!(
+            crate::experimental_api::ExperimentalApi::experimental_reason(&request),
+            Some("thread/dynamicTools/owned/set")
+        );
+        assert_eq!(
+            request.serialization_scope(),
+            Some(ClientRequestSerializationScope::Thread {
+                thread_id: "thread".to_string(),
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(&request).expect("serialize owned replacement"),
+            json!({
+                "id": 1, "method": "thread/dynamicTools/owned/set",
+                "params": {"threadId": "thread", "dynamicTools": []}
+            })
+        );
+        for params in [
+            json!({"threadId": "thread"}),
+            json!({"threadId": "thread", "dynamicTools": null}),
+            json!({"dynamicTools": []}),
+            json!({"threadId": "thread", "dynamicTools": [], "reconnectTokens": {"tool": 1}}),
+        ] {
+            assert!(
+                serde_json::from_value::<ClientRequest>(json!({
+                    "id": 1, "method": "thread/dynamicTools/owned/set", "params": params
+                }))
+                .is_err()
+            );
+        }
+        let params: v2::ThreadDynamicToolsOwnedSetParams = serde_json::from_value(json!({
+            "threadId": "thread", "dynamicTools": [], "reconnectTokens": null
+        }))
+        .expect("null reconnect tokens are optional");
+        assert!(params.reconnect_tokens.is_none());
+    }
+
+    #[test]
+    fn owned_dynamic_tools_tokens_round_trip_but_are_redacted_in_debug() {
+        let tokens = std::collections::HashMap::from([(
+            "private-tool-name".to_string(),
+            "sensitive-reconnect-token".to_string(),
+        )]);
+        let params = v2::ThreadDynamicToolsOwnedSetParams {
+            thread_id: "thread".to_string(),
+            dynamic_tools: vec![],
+            reconnect_tokens: Some(tokens.clone()),
+        };
+        let params_json = json!({
+            "threadId": "thread", "dynamicTools": [],
+            "reconnectTokens": {"private-tool-name": "sensitive-reconnect-token"}
+        });
+        assert_eq!(serde_json::to_value(&params).unwrap(), params_json);
+        assert_eq!(
+            serde_json::from_value::<v2::ThreadDynamicToolsOwnedSetParams>(params_json).unwrap(),
+            params
+        );
+        let response = v2::ThreadDynamicToolsOwnedSetResponse {
+            reconnect_tokens: tokens,
+        };
+        let response_json = json!({
+            "reconnectTokens": {"private-tool-name": "sensitive-reconnect-token"}
+        });
+        assert_eq!(serde_json::to_value(&response).unwrap(), response_json);
+        assert_eq!(
+            serde_json::from_value::<v2::ThreadDynamicToolsOwnedSetResponse>(response_json.clone())
+                .unwrap(),
+            response
+        );
+        let request = ClientRequest::ThreadDynamicToolsOwnedSet {
+            request_id: RequestId::Integer(1),
+            params: params.clone(),
+        };
+        let payload = ClientResponsePayload::from(response.clone());
+        assert_eq!(serde_json::to_value(&payload).unwrap(), response_json);
+        for debug in [
+            format!("{params:?}"),
+            format!("{response:?}"),
+            format!("{request:?}"),
+            format!("{payload:?}"),
+        ] {
+            assert!(debug.contains("<redacted>"));
+            assert!(!debug.contains("sensitive-reconnect-token"));
+            assert!(!debug.contains("private-tool-name"));
         }
     }
 
