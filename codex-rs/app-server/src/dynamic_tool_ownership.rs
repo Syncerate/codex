@@ -413,6 +413,104 @@ mod tests {
     }
 
     #[test]
+    fn disconnected_cleanup_requires_reclaim_then_clear_and_preserves_mixed_catalog() {
+        let mut state = DynamicToolOwnership::default();
+        let thread = ThreadId::new();
+        let (catalog, saved) = set(
+            &mut state,
+            thread,
+            ConnectionId(1),
+            &[tool("legacy")],
+            vec![tool("broker_operation")],
+            HashMap::new(),
+        );
+        let (catalog, _) = set(
+            &mut state,
+            thread,
+            ConnectionId(2),
+            &catalog,
+            vec![tool("other_owner")],
+            HashMap::new(),
+        );
+        state.disconnect(ConnectionId(1));
+
+        // A token identifies a requested reclaim, not a deletion selector.
+        let error = state
+            .plan(thread, ConnectionId(3), &catalog, vec![], saved.clone())
+            .err()
+            .expect("token-bearing empty set must reject without a cleanup receipt");
+        assert_eq!(error, "reconnect capability must name a requested tool");
+        assert!(matches!(
+            state.route(thread, None, "broker_operation"),
+            ToolRoute::Owned(None)
+        ));
+        assert!(state.ensure_legacy_set_allowed(thread).is_err());
+
+        // Tokenless [] has only live-caller scope. It cannot delete reservations.
+        let (unchanged, empty) = set(
+            &mut state,
+            thread,
+            ConnectionId(3),
+            &catalog,
+            vec![],
+            HashMap::new(),
+        );
+        assert_eq!(unchanged, catalog);
+        assert!(empty.is_empty());
+        assert!(matches!(
+            state.route(thread, None, "broker_operation"),
+            ToolRoute::Owned(None)
+        ));
+        assert!(state.ensure_legacy_set_allowed(thread).is_err());
+
+        let (reclaimed, recovered) = set(
+            &mut state,
+            thread,
+            ConnectionId(3),
+            &unchanged,
+            vec![tool("broker_operation")],
+            saved.clone(),
+        );
+        assert_eq!(recovered, saved);
+        let (cleared, empty) = set(
+            &mut state,
+            thread,
+            ConnectionId(3),
+            &reclaimed,
+            vec![],
+            HashMap::new(),
+        );
+        assert!(empty.is_empty());
+        assert_eq!(cleared, vec![tool("legacy"), tool("other_owner")]);
+        assert!(matches!(
+            state.route(thread, None, "other_owner"),
+            ToolRoute::Owned(Some(ConnectionId(2)))
+        ));
+        assert!(state.ensure_legacy_set_allowed(thread).is_err());
+        assert!(
+            state
+                .plan(
+                    thread,
+                    ConnectionId(4),
+                    &cleared,
+                    vec![tool("broker_operation")],
+                    saved,
+                )
+                .is_err()
+        );
+        let (legacy, _) = set(
+            &mut state,
+            thread,
+            ConnectionId(2),
+            &cleared,
+            vec![],
+            HashMap::new(),
+        );
+        assert_eq!(legacy, vec![tool("legacy")]);
+        assert!(state.ensure_legacy_set_allowed(thread).is_ok());
+    }
+
+    #[test]
     fn unload_reserves_names_until_explicit_reclaim_without_fork_inheritance() {
         let mut state = DynamicToolOwnership::default();
         let thread = ThreadId::new();
