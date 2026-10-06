@@ -1,11 +1,15 @@
 """Build-only native voice prefix using the same recipe as release packaging."""
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("@rules_foreign_cc//foreign_cc/private:cc_toolchain_util.bzl", "absolutize_path_in_str", "get_env_vars", "get_flags_info", "get_tools_info")
 load("@rules_python//python:py_runtime_info.bzl", "PyRuntimeInfo")
 
 def _native_prefix_impl(ctx):
+    jobs = ctx.attr._build_jobs[BuildSettingInfo].value
+    if jobs < 1:
+        fail("native_build_jobs must be positive")
     cc = find_cpp_toolchain(ctx)
     features = cc_common.configure_features(
         ctx = ctx,
@@ -31,7 +35,7 @@ def _native_prefix_impl(ctx):
         "receipt": receipt.path,
         "target": ctx.attr.target,
         "deployment_target": minimums[0] if minimums else None,
-        "jobs": 8,
+        "jobs": jobs,
         "cc": tools.cc,
         "cxx": tools.cxx,
         "ar": tools.cxx_linker_static,
@@ -93,6 +97,7 @@ native_prefix = rule(
     attrs = {
         "archives": attr.label_list(allow_files = True, mandatory = True),
         "target": attr.string(mandatory = True),
+        "_build_jobs": attr.label(default = "//third_party/voice:native_build_jobs"),
         "_driver": attr.label(default = "//third_party/voice:bazel_native.py", allow_single_file = True),
         "_recipe": attr.label(default = "//third_party/voice:native_recipe"),
         "_python": attr.label(default = "@python_3_12//:py3_runtime", cfg = "exec"),

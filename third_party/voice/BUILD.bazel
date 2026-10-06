@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:common_settings.bzl", "int_flag")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_foreign_cc//toolchains/native_tools:native_tools_toolchain.bzl", "native_tool_toolchain")
 load(":native.bzl", "native_prefix")
@@ -5,6 +6,12 @@ load(":native_link.bzl", "native_link")
 load(":pkg_config.bzl", "pkg_config")
 load(":runtime.bzl", "native_runtime")
 load(":windows_native.bzl", "windows_build_tools", "windows_native_prefix")
+
+int_flag(
+    name = "native_build_jobs",
+    build_setting_default = 8,
+    visibility = ["//visibility:public"],
+)
 
 # All native build consumers must receive the same pinned source manifest.
 exports_files(["opus-toolchain.cmake"])
