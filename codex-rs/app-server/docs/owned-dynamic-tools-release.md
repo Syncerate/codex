@@ -81,10 +81,105 @@ Inspect schema/index differences and parse errors rather than inferring store
 compatibility from updater success. Stop disposable processes and verify no
 fixture-owned processes remain before reporting a receipt.
 
-This document records the preparation contract. Release-specific compilation,
-package assembly, managed update and rollback results remain pending until
-immutable receipts are recorded. It does not authorize a live swap or establish
-closed-source desktop UI compatibility.
+## Qualified build and package
+
+The frozen build source is `216a55698e01760e5c7e27e0349e945bcba96d4e`, tree
+`4775a37ca9d02d68b4fc64ef563171775fb030f8`. Later documentation commits are not
+build sources. Rust/Cargo 1.95.0, Bazel 9.0 and two-job compilation produced the
+complete musl CLI and code-mode host. The voice native recipe received two jobs;
+its default eight, override two and invalid zero configurations were checked.
+Release debug information was disabled; the canonical symbol extraction and
+strip script was applied to fresh executable copies. Native voice uses the
+release GNU helper contract and records the same source commit.
+
+The package contains 44 regular files, totaling 447,340,469 bytes. Every regular
+artifact, mode, manifest and archive digest is recorded in the retained
+`full-package-inventory.json` qualification artifact. A generic copy of all
+package entries is committed in [owned-dynamic-tools-release-artifacts.json](owned-dynamic-tools-release-artifacts.json).
+Principal digests are:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Packaged musl CLI | `a6d926a8025c0ce6e134138be0ae48488be8732be8095e07071582301d23651d` |
+| Packaged musl code-mode host | `a4350be302671110827ad5cc6b87580f5d6615ff71a37288a4da709287de661f` |
+| Rebuilt voice host | `4bd45ce47fb84e27eb6ba705cb8215309a97470a442f085f6250f9bfd117e819` |
+| Full package tar.gz | `da2320c6588887cdbff8b3bb2baad9fbdc1cf50492bb895569f6f27de538da27` |
+| Full package tar.zst | `b8a4d8979bacd3b64cb2db594247eb49631855287484b7da573706bcacc1ca9c` |
+| Symbol archive | `ed41f8d6eb658a7a1266f15fd93922f45835481bc079525ee135ee8e87ea8618` |
+| Full inventory JSON | `6bda2e9f6d1e6b88909a617f0ea5a3c691cd038104d05ec83c79400538eeea0e` |
+
+Ripgrep, bubblewrap and zsh were reused byte-for-byte from the exact release
+artifacts and checked with their version commands. Voice was rebuilt rather
+than relabeled. Its build-commit handshake, runtime initialization, shutdown,
+and wrong-commit rejection passed. The packaged code-mode host completed a
+framed evaluation returning 42 and shut down cleanly. These helper probes do
+not qualify audio devices, interactive zsh or bubblewrap sandbox execution.
+The candidate package is unsigned; it is not an official release signature.
+
+## Native and managed receipts
+
+On the frozen source, native catalog, protocol, ownership and routing tests
+passed: 723 tests total (705 library tests, one core catalog regression and 17
+app-server integration tests), with one intentional fixture-writer ignore.
+Stable SDK and experimental schemas were regenerated; stable exports stayed
+identical to the release base. Formatting and Bazel lock checks passed.
+Scoped Clippy completed with warnings. Its proposed ownership match rewrite
+changed semantics, so generated fixes were preserved separately and reverted
+before building the exact tested source. This is not a warning-free lint claim.
+
+The protected Go mock-broker managed fixture passed with race detection against
+broker commit `ed256f61f8b2d5647c7f91b1d009d5c4f9a1116b`:
+
+```sh
+BROKER_TEST_MANAGED_CODEX_CLI="$FORK_PACKAGE/bin/codex" \
+BROKER_TEST_MANAGED_DRIVER="$QUALIFICATION_DRIVER" \
+GOTOOLCHAIN=local GOROOT="$GO_ROOT" GOMAXPROCS=2 GOCACHE="$TEMP_GO_CACHE" \
+go test -p2 -race -count=1 -v ./broker \
+  -run '^TestCodexManagedSharedFullPackageAdapter$'
+```
+
+The testcase passed in 67.26 seconds and checked exactly two mock effects and
+one revoked binding. Four managed-boundary and fourteen controller/Unix Python
+tests also passed. The external driver used only private disposable homes and
+mock admission, with auto-update disabled and no credentials. Actual managed
+executable hashes were checked, rather than relying on the shared version string.
+
+The exact stock 0.160.1 proxy observed item events but no owned callback. Forged
+result/error replies were denied; owner reconnect retained its capability.
+Managed restart changed the verified process generation. Explicit administrator
+restore preserved the broker epoch and operation IDs; reconciliation did not
+replay the uncertain mutation. Disconnected revoked cleanup reclaimed solely
+for clear without reactivating broker authority.
+
+Both patched installation and rollback used the selected package's own
+`app-server daemon update --from-cli --yes`. Exact stock CLI digest was
+`f34a4d2301892ae96c90097786bfe5dc269f187b6f69faf42a7b357b8c081e35`;
+stock archive digest was
+`05f9279fcfb76564a1801dd835286a56277c0a4dd97d94f58543e71b2ed5f80c`.
+All 44 regular files matched the installed release inventory. Its additional
+installed `codex -> bin/codex` alias is absent from the public archive and was
+not silently added. The stock package was preserved outside managed selectors.
+
+Stock reopened the same fork-written home, listed/read/resumed both ordinary and
+formerly owned threads, preserved existing turns, completed new turns and
+passed a second cold resume. Migration sources were unchanged from the release
+base and observed ledgers remained unchanged. A representative extra attachment
+index was manually added only to the disposable store; stock retained it. This
+port does not introduce that index or a newer snapshot migration.
+
+The final receipt records stopped fixture daemon PID/start identities, reaped
+stock proxy processes, a closed canonical socket and a stopped mock provider.
+Earlier driver-only failures (version output without PID and concurrent proxy
+close locking) were corrected in temporary qualification code; the runtime and
+broker source were unchanged. Full receipts and logs are retained with the
+package inventory. Actual stock proxy protocol behavior is qualified; TUI
+rendering, closed-source desktop UI, live state scale and older GNU helper host
+compatibility remain untested.
+
+A live swap requires a separate operator window and authorization, verified
+backups and exact rollback package, daemon-owner canonical paths, disabled
+managed auto-update, and explicit ownership activation/restore procedures.
+This preparation performed no live swap or user-home lifecycle operation.
 
 ## Preparation receipt
 

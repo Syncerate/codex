@@ -1,0 +1,449 @@
+{
+  "buildSourceCommit": "216a55698e01760e5c7e27e0349e945bcba96d4e",
+  "buildSourceTree": "4775a37ca9d02d68b4fc64ef563171775fb030f8",
+  "entries": [
+    {
+      "mode": "0775",
+      "path": "bin",
+      "type": "directory"
+    },
+    {
+      "bytes": 289801720,
+      "mode": "0775",
+      "path": "bin/codex",
+      "sha256": "a6d926a8025c0ce6e134138be0ae48488be8732be8095e07071582301d23651d",
+      "type": "file"
+    },
+    {
+      "bytes": 74027832,
+      "mode": "0775",
+      "path": "bin/codex-code-mode-host",
+      "sha256": "a4350be302671110827ad5cc6b87580f5d6615ff71a37288a4da709287de661f",
+      "type": "file"
+    },
+    {
+      "bytes": 205,
+      "mode": "0664",
+      "path": "codex-package.json",
+      "sha256": "a04a3cfb05f6738fc1e01678975cdae4c3a0859ff36f06ecfbf8392beee7f86c",
+      "type": "file"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-path",
+      "type": "directory"
+    },
+    {
+      "bytes": 5408904,
+      "mode": "0775",
+      "path": "codex-path/rg",
+      "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+      "type": "file"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources",
+      "type": "directory"
+    },
+    {
+      "bytes": 529776,
+      "mode": "0775",
+      "path": "codex-resources/bwrap",
+      "sha256": "77360cb751ccedc5971391444ac86a8a33c15b04d6b4a6fe45f5d25496e62c4c",
+      "type": "file"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources/voice",
+      "type": "directory"
+    },
+    {
+      "bytes": 2403,
+      "mode": "0664",
+      "path": "codex-resources/voice/NOTICE.md",
+      "sha256": "40097a1799441051aa0b6645cdc819cceb19be73cdd265eb602aa2b15e0b1f48",
+      "type": "file"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources/voice/bin",
+      "type": "directory"
+    },
+    {
+      "bytes": 64531104,
+      "mode": "0755",
+      "path": "codex-resources/voice/bin/codex-voice-host",
+      "sha256": "4bd45ce47fb84e27eb6ba705cb8215309a97470a442f085f6250f9bfd117e819",
+      "type": "file"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources/voice/lib",
+      "type": "directory"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources/voice/lib/gstreamer-1.0",
+      "type": "directory"
+    },
+    {
+      "bytes": 6488,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/gstreamer-1.0/libgstapp.so",
+      "sha256": "c8e82f11f4737109eb68cf034610114e91b8ff4536e040af9538db152d3c22eb",
+      "type": "file"
+    },
+    {
+      "bytes": 40928,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/gstreamer-1.0/libgstaudioconvert.so",
+      "sha256": "e50a5446cd51ff2da426bcb32db8cf96bde0bc94bbfc566cbb7a0302bbf345f6",
+      "type": "file"
+    },
+    {
+      "bytes": 35120,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/gstreamer-1.0/libgstaudioresample.so",
+      "sha256": "74f857b7d5cc113aa0404b644f70d32101ff41a72a17704ad3ba11a3500c54ec",
+      "type": "file"
+    },
+    {
+      "bytes": 473176,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/gstreamer-1.0/libgstcoreelements.so",
+      "sha256": "ce20e150af48b6612e5caff1e7640adb08a70493185f31104dec1823cb7542fd",
+      "type": "file"
+    },
+    {
+      "bytes": 71992,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/gstreamer-1.0/libgstopus.so",
+      "sha256": "63d40ab999ae101a9b9692bf551565b02852e4669d0c4fab4490dc316d832d50",
+      "type": "file"
+    },
+    {
+      "bytes": 739744,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/gstreamer-1.0/libgstrtp.so",
+      "sha256": "76c7ada3e9d26ca177ef78fbaba19e7da8f8873d148b2c5dac257a5f3acfd83c",
+      "type": "file"
+    },
+    {
+      "bytes": 558104,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/gstreamer-1.0/libgstrtpmanager.so",
+      "sha256": "a4cbe3d0a77aa0cffebf3ec4aa9c068c35c52391ae4c2a9a135b1e11f4fe61d4",
+      "type": "file"
+    },
+    {
+      "bytes": 63112,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libffi.so.8",
+      "sha256": "6ef5db59b2e4b1eb63032fa6c8afb1669bc09b073789233c379efda85b1353db",
+      "type": "file"
+    },
+    {
+      "bytes": 2307904,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgio-2.0.so.0",
+      "sha256": "e7a5a7742781817ec19dd8760e5b34768a075d270e088e8811d52fc754bceb10",
+      "type": "file"
+    },
+    {
+      "bytes": 1480224,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libglib-2.0.so.0",
+      "sha256": "53dc7cbc98c839085a34f1552aaa2bb65e38fcbcba8867ddd873e7e18e4efe61",
+      "type": "file"
+    },
+    {
+      "bytes": 15656,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgmodule-2.0.so.0",
+      "sha256": "d50fa44deab4d64cc62d856e5a418428ca6cf963ea7b100928d50108432abed4",
+      "type": "file"
+    },
+    {
+      "bytes": 449600,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgobject-2.0.so.0",
+      "sha256": "0f6f549ae54d3f58a5255412329e8a0314acb29a6e4893b160305dbbc7574370",
+      "type": "file"
+    },
+    {
+      "bytes": 30128,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstallocators-1.0.so.0",
+      "sha256": "cd9fecc7314ba0638b518336b3ac9596222fa9fe16830ab46db33bfe82f44c25",
+      "type": "file"
+    },
+    {
+      "bytes": 105200,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstapp-1.0.so.0",
+      "sha256": "af579230412b078d0939c91f1eea577d99ad6557bb55ce32ffaf24676d9168eb",
+      "type": "file"
+    },
+    {
+      "bytes": 597832,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstaudio-1.0.so.0",
+      "sha256": "0fbc00b757ef73a2d1fbe3a0b1ad244d111977e6331ef6cada026b8d1c585ba1",
+      "type": "file"
+    },
+    {
+      "bytes": 564592,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstbase-1.0.so.0",
+      "sha256": "6862ccd0afda7bd5236e92dc435d67da11d6f0a16333d8a4fea1b1d11be8d32f",
+      "type": "file"
+    },
+    {
+      "bytes": 73856,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstnet-1.0.so.0",
+      "sha256": "8710caf96bbb658dd5275d7eff34138f7ba43366d3dc770a2d4090a6a1775cca",
+      "type": "file"
+    },
+    {
+      "bytes": 316576,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstpbutils-1.0.so.0",
+      "sha256": "7746acf0514db6b821d00ffb8e067e9d23440a28d3262efd680d2ea892662dfc",
+      "type": "file"
+    },
+    {
+      "bytes": 1548568,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstreamer-1.0.so.0",
+      "sha256": "b8fda64f9cf76b52e8a27617b0b8ce7ce5c7a83e294f6196d11ca90d93cedf79",
+      "type": "file"
+    },
+    {
+      "bytes": 209200,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstrtp-1.0.so.0",
+      "sha256": "68e362db3ae300fc7cc7d42026a4a146ccfe689f6a1129562bca7dd0635a2be6",
+      "type": "file"
+    },
+    {
+      "bytes": 268280,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgsttag-1.0.so.0",
+      "sha256": "6ea819f0079066c0576629dfdacd631b7efe211119111551332ceab9253d0e9e",
+      "type": "file"
+    },
+    {
+      "bytes": 975136,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libgstvideo-1.0.so.0",
+      "sha256": "0a81e2e7bf8d64fe4c284f477f82ebc5a07bf5272f232e5b4208ffaf67e1a352",
+      "type": "file"
+    },
+    {
+      "bytes": 6288,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libintl.so.8",
+      "sha256": "f50f3ab34be7b3392f2db82bd67d50e133b35fa41d352dc3b3a97b70b0ffd960",
+      "type": "file"
+    },
+    {
+      "bytes": 565744,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libopus.so.0",
+      "sha256": "8bed1ed45ae90d584916839efd37f925b0e57905245a6a5714206088736d39f2",
+      "type": "file"
+    },
+    {
+      "bytes": 442424,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libpcre2-8.so.0",
+      "sha256": "e39519b242f40686734ed8d0218f68cac24f0e956ec64c8c1b49b9da5cc9788b",
+      "type": "file"
+    },
+    {
+      "bytes": 109296,
+      "mode": "0555",
+      "path": "codex-resources/voice/lib/libz.so.1",
+      "sha256": "6c5d765f42d9368cc4bdbd11f725c1bcf6b14b78322033d3c94f787fc6261f5e",
+      "type": "file"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources/voice/licenses",
+      "type": "directory"
+    },
+    {
+      "bytes": 26431,
+      "mode": "0664",
+      "path": "codex-resources/voice/licenses/LGPL-2.1.txt",
+      "sha256": "ad2eec519ebd4b5df86ea84dff24ae3bfa2edea846a703b58902dd221ae375db",
+      "type": "file"
+    },
+    {
+      "bytes": 1945,
+      "mode": "0664",
+      "path": "codex-resources/voice/licenses/Opus.txt",
+      "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+      "type": "file"
+    },
+    {
+      "bytes": 4011,
+      "mode": "0664",
+      "path": "codex-resources/voice/licenses/PCRE2.md",
+      "sha256": "197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811",
+      "type": "file"
+    },
+    {
+      "bytes": 1132,
+      "mode": "0664",
+      "path": "codex-resources/voice/licenses/libffi.txt",
+      "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c",
+      "type": "file"
+    },
+    {
+      "bytes": 25292,
+      "mode": "0664",
+      "path": "codex-resources/voice/licenses/proxy-libintl.txt",
+      "sha256": "d245807f90032872d1438d741ed21e2490e1175dc8aa3afa5ddb6c8e529b58e5",
+      "type": "file"
+    },
+    {
+      "bytes": 1444,
+      "mode": "0664",
+      "path": "codex-resources/voice/licenses/sljit.txt",
+      "sha256": "5f216505c0f6ea3273caec89e766eef93cdeb7bbb0c429f9360116d7c938feeb",
+      "type": "file"
+    },
+    {
+      "bytes": 1002,
+      "mode": "0664",
+      "path": "codex-resources/voice/licenses/zlib.txt",
+      "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+      "type": "file"
+    },
+    {
+      "bytes": 4768,
+      "mode": "0664",
+      "path": "codex-resources/voice/manifest.json",
+      "sha256": "0b3eadb9c616c0895327eb394c73885fe6a5091f7cff20b5598b42a4843d4c70",
+      "type": "file"
+    },
+    {
+      "bytes": 13941,
+      "mode": "0755",
+      "path": "codex-resources/voice/runtime.json",
+      "sha256": "c9e92326056527f1520adc60c7b361582ee4fab4fec4d3466b4e57c5ab4ac673",
+      "type": "file"
+    },
+    {
+      "bytes": 4911,
+      "mode": "0664",
+      "path": "codex-resources/voice/sources.json",
+      "sha256": "e2f6b124f6277e7c3c4f5c7cc8830c66190f671ad65e972bb2cc9507dbfcb937",
+      "type": "file"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources/zsh",
+      "type": "directory"
+    },
+    {
+      "mode": "0775",
+      "path": "codex-resources/zsh/bin",
+      "type": "directory"
+    },
+    {
+      "bytes": 898480,
+      "mode": "0775",
+      "path": "codex-resources/zsh/bin/zsh",
+      "sha256": "67faaaa89242c4a332e16e508a1977cffc24bf7fca31d4411cdfd101f3831ef3",
+      "type": "file"
+    }
+  ],
+  "manifest": {
+    "entrypoint": "bin/codex",
+    "layoutVersion": 1,
+    "pathDir": "codex-path",
+    "resourcesDir": "codex-resources",
+    "target": "x86_64-unknown-linux-musl",
+    "variant": "codex",
+    "version": "0.160.1"
+  },
+  "regularFileBytes": 447340469,
+  "regularFileCount": 44,
+  "resourceOverrides": {
+    "cargoJobs": 2,
+    "releaseDebugInfo": 0,
+    "voiceNativeJobs": 2,
+    "zstdThreads": 2
+  },
+  "voiceManifest": {
+    "appTarget": "x86_64-unknown-linux-musl",
+    "appVersion": "0.160.1",
+    "buildCommit": "216a55698e01760e5c7e27e0349e945bcba96d4e",
+    "schemaVersion": 1,
+    "sha256": {
+      "bin/codex": "a6d926a8025c0ce6e134138be0ae48488be8732be8095e07071582301d23651d",
+      "codex-resources/voice/NOTICE.md": "40097a1799441051aa0b6645cdc819cceb19be73cdd265eb602aa2b15e0b1f48",
+      "codex-resources/voice/bin/codex-voice-host": "4bd45ce47fb84e27eb6ba705cb8215309a97470a442f085f6250f9bfd117e819",
+      "codex-resources/voice/lib/gstreamer-1.0/libgstapp.so": "c8e82f11f4737109eb68cf034610114e91b8ff4536e040af9538db152d3c22eb",
+      "codex-resources/voice/lib/gstreamer-1.0/libgstaudioconvert.so": "e50a5446cd51ff2da426bcb32db8cf96bde0bc94bbfc566cbb7a0302bbf345f6",
+      "codex-resources/voice/lib/gstreamer-1.0/libgstaudioresample.so": "74f857b7d5cc113aa0404b644f70d32101ff41a72a17704ad3ba11a3500c54ec",
+      "codex-resources/voice/lib/gstreamer-1.0/libgstcoreelements.so": "ce20e150af48b6612e5caff1e7640adb08a70493185f31104dec1823cb7542fd",
+      "codex-resources/voice/lib/gstreamer-1.0/libgstopus.so": "63d40ab999ae101a9b9692bf551565b02852e4669d0c4fab4490dc316d832d50",
+      "codex-resources/voice/lib/gstreamer-1.0/libgstrtp.so": "76c7ada3e9d26ca177ef78fbaba19e7da8f8873d148b2c5dac257a5f3acfd83c",
+      "codex-resources/voice/lib/gstreamer-1.0/libgstrtpmanager.so": "a4cbe3d0a77aa0cffebf3ec4aa9c068c35c52391ae4c2a9a135b1e11f4fe61d4",
+      "codex-resources/voice/lib/libffi.so.8": "6ef5db59b2e4b1eb63032fa6c8afb1669bc09b073789233c379efda85b1353db",
+      "codex-resources/voice/lib/libgio-2.0.so.0": "e7a5a7742781817ec19dd8760e5b34768a075d270e088e8811d52fc754bceb10",
+      "codex-resources/voice/lib/libglib-2.0.so.0": "53dc7cbc98c839085a34f1552aaa2bb65e38fcbcba8867ddd873e7e18e4efe61",
+      "codex-resources/voice/lib/libgmodule-2.0.so.0": "d50fa44deab4d64cc62d856e5a418428ca6cf963ea7b100928d50108432abed4",
+      "codex-resources/voice/lib/libgobject-2.0.so.0": "0f6f549ae54d3f58a5255412329e8a0314acb29a6e4893b160305dbbc7574370",
+      "codex-resources/voice/lib/libgstallocators-1.0.so.0": "cd9fecc7314ba0638b518336b3ac9596222fa9fe16830ab46db33bfe82f44c25",
+      "codex-resources/voice/lib/libgstapp-1.0.so.0": "af579230412b078d0939c91f1eea577d99ad6557bb55ce32ffaf24676d9168eb",
+      "codex-resources/voice/lib/libgstaudio-1.0.so.0": "0fbc00b757ef73a2d1fbe3a0b1ad244d111977e6331ef6cada026b8d1c585ba1",
+      "codex-resources/voice/lib/libgstbase-1.0.so.0": "6862ccd0afda7bd5236e92dc435d67da11d6f0a16333d8a4fea1b1d11be8d32f",
+      "codex-resources/voice/lib/libgstnet-1.0.so.0": "8710caf96bbb658dd5275d7eff34138f7ba43366d3dc770a2d4090a6a1775cca",
+      "codex-resources/voice/lib/libgstpbutils-1.0.so.0": "7746acf0514db6b821d00ffb8e067e9d23440a28d3262efd680d2ea892662dfc",
+      "codex-resources/voice/lib/libgstreamer-1.0.so.0": "b8fda64f9cf76b52e8a27617b0b8ce7ce5c7a83e294f6196d11ca90d93cedf79",
+      "codex-resources/voice/lib/libgstrtp-1.0.so.0": "68e362db3ae300fc7cc7d42026a4a146ccfe689f6a1129562bca7dd0635a2be6",
+      "codex-resources/voice/lib/libgsttag-1.0.so.0": "6ea819f0079066c0576629dfdacd631b7efe211119111551332ceab9253d0e9e",
+      "codex-resources/voice/lib/libgstvideo-1.0.so.0": "0a81e2e7bf8d64fe4c284f477f82ebc5a07bf5272f232e5b4208ffaf67e1a352",
+      "codex-resources/voice/lib/libintl.so.8": "f50f3ab34be7b3392f2db82bd67d50e133b35fa41d352dc3b3a97b70b0ffd960",
+      "codex-resources/voice/lib/libopus.so.0": "8bed1ed45ae90d584916839efd37f925b0e57905245a6a5714206088736d39f2",
+      "codex-resources/voice/lib/libpcre2-8.so.0": "e39519b242f40686734ed8d0218f68cac24f0e956ec64c8c1b49b9da5cc9788b",
+      "codex-resources/voice/lib/libz.so.1": "6c5d765f42d9368cc4bdbd11f725c1bcf6b14b78322033d3c94f787fc6261f5e",
+      "codex-resources/voice/licenses/LGPL-2.1.txt": "ad2eec519ebd4b5df86ea84dff24ae3bfa2edea846a703b58902dd221ae375db",
+      "codex-resources/voice/licenses/Opus.txt": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+      "codex-resources/voice/licenses/PCRE2.md": "197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811",
+      "codex-resources/voice/licenses/libffi.txt": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c",
+      "codex-resources/voice/licenses/proxy-libintl.txt": "d245807f90032872d1438d741ed21e2490e1175dc8aa3afa5ddb6c8e529b58e5",
+      "codex-resources/voice/licenses/sljit.txt": "5f216505c0f6ea3273caec89e766eef93cdeb7bbb0c429f9360116d7c938feeb",
+      "codex-resources/voice/licenses/zlib.txt": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+      "codex-resources/voice/runtime.json": "c9e92326056527f1520adc60c7b361582ee4fab4fec4d3466b4e57c5ab4ac673",
+      "codex-resources/voice/sources.json": "e2f6b124f6277e7c3c4f5c7cc8830c66190f671ad65e972bb2cc9507dbfcb937"
+    },
+    "voiceTarget": "x86_64-unknown-linux-gnu"
+  },
+  "archives": [
+    {
+      "name": "codex-owned-0.160.1-musl-216a.tar.gz",
+      "sha256": "da2320c6588887cdbff8b3bb2baad9fbdc1cf50492bb895569f6f27de538da27",
+      "bytes": 160992267
+    },
+    {
+      "name": "codex-owned-0.160.1-musl-216a.tar.zst",
+      "sha256": "b8a4d8979bacd3b64cb2db594247eb49631855287484b7da573706bcacc1ca9c",
+      "bytes": 116320137
+    }
+  ],
+  "qualification": {
+    "brokerPin": "ed256f61f8b2d5647c7f91b1d009d5c4f9a1116b",
+    "nativePassed": 723,
+    "managedGoRaceFixture": "PASS",
+    "stockProxy": "PASS",
+    "sameHomeStockRollback": "PASS",
+    "tuiRendering": "UNTESTED",
+    "candidateSigned": false
+  }
+}
