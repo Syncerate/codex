@@ -1149,6 +1149,48 @@ pub struct ThreadDynamicToolsSetParams {
 #[ts(export_to = "v2/")]
 pub struct ThreadDynamicToolsSetResponse {}
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub struct ThreadDynamicToolsOwnedSetParams {
+    pub thread_id: String,
+    /// Replace the caller's owned dynamic tools for future turns. An empty list clears them.
+    pub dynamic_tools: Vec<DynamicToolSpec>,
+    /// Sensitive reconnect credentials keyed by tool name. Never log these values.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub reconnect_tokens: Option<HashMap<String, String>>,
+}
+
+impl std::fmt::Debug for ThreadDynamicToolsOwnedSetParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ThreadDynamicToolsOwnedSetParams")
+            .field("thread_id", &self.thread_id)
+            .field("dynamic_tools", &self.dynamic_tools)
+            .field(
+                "reconnect_tokens",
+                &self.reconnect_tokens.as_ref().map(|_| "<redacted>"),
+            )
+            .finish()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub struct ThreadDynamicToolsOwnedSetResponse {
+    /// Sensitive reconnect credentials keyed by tool name. Never log these values.
+    pub reconnect_tokens: HashMap<String, String>,
+}
+
+impl std::fmt::Debug for ThreadDynamicToolsOwnedSetResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ThreadDynamicToolsOwnedSetResponse")
+            .field("reconnect_tokens", &"<redacted>")
+            .finish()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export_to = "v2/")]

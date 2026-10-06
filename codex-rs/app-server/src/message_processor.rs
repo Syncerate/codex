@@ -1436,6 +1436,9 @@ impl MessageProcessor {
                     .thread_settings_update(&request_id, params)
                     .await
             }
+            ClientRequest::ThreadDynamicToolsOwnedSet { .. } => {
+                Err(invalid_request("owned dynamic tool routing is not available yet"))
+            }
             ClientRequest::ThreadDynamicToolsSet { params, .. } => {
                 self.turn_processor
                     .thread_dynamic_tools_set(&request_id, params)

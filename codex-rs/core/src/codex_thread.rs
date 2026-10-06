@@ -939,6 +939,11 @@ impl CodexThread {
         self.session.state_db()
     }
 
+    /// Current runtime catalog without app-server ownership or reconnect secrets.
+    pub async fn dynamic_tools(&self) -> Vec<codex_protocol::dynamic_tools::DynamicToolSpec> {
+        self.session.dynamic_tools().await
+    }
+
     pub async fn config_snapshot(&self) -> ThreadConfigSnapshot {
         self.session.thread_config_snapshot().await
     }
