@@ -85,3 +85,35 @@ This document records the preparation contract. Release-specific compilation,
 package assembly, managed update and rollback results remain pending until
 immutable receipts are recorded. It does not authorize a live swap or establish
 closed-source desktop UI compatibility.
+
+## Preparation receipt
+
+Native source `216a55698e01760e5c7e27e0349e945bcba96d4e`, tree
+`4775a37ca9d02d68b4fc64ef563171775fb030f8`, used Rust/Cargo 1.95.0 with two build
+jobs, two test threads and a 16 MiB test stack. Canonical stable and experimental
+schema generation, Python SDK regeneration, repository formatting, Bazel lock
+refresh and the canonical voice build-graph analysis passed.
+
+| Check | Executed result |
+| --- | --- |
+| Ordered core catalog library regression | 1 passed; 2665 unrelated tests filtered |
+| Full app-server library | 389 passed |
+| Full protocol library | 316 passed; 1 intentional fixture-writer skip |
+| Native dynamic-tool integration selection | Compilation stopped at the configured 2 GiB disk reserve; exit 130; no integration cases ran |
+| Full musl CLI/code-mode/voice package | Not built |
+| Managed update, stock TUI/proxy and stock rollback | Not executed |
+
+The release's existing unused `ToolCallSource` import warning is unchanged.
+Temporary musl compiler/standard library and checksum-verified V8 and OpenSSL
+inputs were prepared, but those preparations are not package-build evidence.
+The exact stock 0.160.1 musl rollback package was verified and inspected; its
+CLI reported version 0.160.1 and a static PIE executable without an ELF
+interpreter. No lifecycle command used a real user's Codex home.
+
+The finite blocker is build-storage headroom. Preserve source worktrees and
+receipts; do not infer full qualification or publish a deployable artifact from
+the passing library subset. Resume native integration, required lint, full
+package assembly and disposable managed qualification after storage is available.
+The owning broker's exact Unix-transport fixture pin and managed-socket interface
+are also required before final adapter acceptance. No release branch was pushed
+while these required checks remained incomplete.
